@@ -1,0 +1,101 @@
+﻿@page "/registracija"
+
+@using Microsoft.AspNetCore.Http
+@using VeterinarskaStanica.Model.Model.User
+
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+
+<div class="bg-primary">
+    <div id="layoutAuthentication">
+        <div id="layoutAuthentication_content" class="d-flex align-items-center justify-content-center">
+            <main class="d-flex" style="width:470px;">
+                <div class="container py-5">
+                    <div class="row justify-content-center mx-0">
+                        <div class="col-12">
+                            <div class="card shadow-lg border-0 rounded-lg">
+                                <div class="card-header"><h3 class="text-center font-weight-light my-4">Kreiraj korisnički račun</h3></div>
+                                <div class="card-body">
+                                    <EditForm Model="registerForm" OnValidSubmit="Submit">
+                                        <DataAnnotationsValidator />
+                                        <div class="form-row">
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="small mb-1" for="inputFirstName">Ime</label>
+                                                    <InputText @bind-Value="registerForm.Name" id="inputFirstName" class="form-control py-4" type="text" placeholder="Unesite ime" />
+                                                    <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Name)" /></span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="small mb-1" for="inputLastName">Prezime</label>
+                                                    <InputText @bind-Value="registerForm.Surname" id="inputLastName" class="form-control py-4" type="text" placeholder="Unesite prezime" />
+                                                    <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Surname)" /></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="small mb-1" for="inputBirthDate">Datum rođenja</label>
+                                            <InputText @bind-Value="registerForm.BirthDate" id="inputBirthDate" class="form-control py-4" type="date" />
+                                            <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.BirthDate)" /></span>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="small mb-1" for="inputAddress">Adresa</label>
+                                            <InputText @bind-Value="registerForm.Address" id="inputAddress" class="form-control py-4" type="text" />
+                                            <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Address)" /></span>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="small mb-1" for="inputPhoneNumber">Broj telefona</label>
+                                            <InputText @bind-Value="registerForm.PhoneNumber" id="inputPhoneNumber" class="form-control py-4" type="text" />
+                                            <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.PhoneNumber)" /></span>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="small mb-1" for="inputPassword">Lozinka</label>
+                                            <InputText @bind-Value="registerForm.Password" id="inputPassword" class="form-control py-4" type="password" />
+                                            <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Password)" /></span>
+                                        </div>
+                                        <div class="form-group mt-4 mb-0">
+                                            <button type="submit" class="btn btn-primary btn-block">Kreiraj račun</button>
+                                        </div>
+                                    </EditForm>
+                                </div>
+                                <div class="card-footer text-center">
+                                    <div class="small"><a href="/prijava">Već imaš korisnički račun? Prijavi se.</a></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        <Footer />
+    </div>
+</div>
+
+@code { 
+
+    private RegisterForm registerForm = new RegisterForm();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        //Check does "user" is already authenticated
+        if (HttpContextAccessor.HttpContext.User.Identity.IsAuthenticated)
+        {
+            //If is authenticated, navigate to home page
+            NavigationManager.NavigateTo("/");
+        }
+
+        if (firstRender)
+        {
+            //Change "Page Title"
+            await JSRuntime.InvokeVoidAsync("ChangePageTitle", "Veterinarska stanica | Registracija");
+        }
+    }
+
+    private async Task Submit()
+    {
+        await InvokeAsync(() => StateHasChanged());
+    }
+
+}

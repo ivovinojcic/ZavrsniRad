@@ -1,0 +1,129 @@
+﻿@page "/prijava"
+
+@using VeterinarskaStanica.Model.Model.User
+@using VeterinarskaStanica.Service.AppService
+@using Microsoft.AspNetCore.Http
+
+@inject IUserService UserService
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<div class="bg-primary">
+    <div id="layoutAuthentication">
+        <div id="layoutAuthentication_content" class="d-flex align-items-center justify-content-center">
+            <main class="d-flex" style="width:470px;">
+                <div class="container py-5">
+                    <div class="row justify-content-center mx-0">
+                        <div class="col-12">
+                            <div class="card shadow-lg border-0 rounded-lg">
+                                <div class="card-header"><h3 class="text-center font-weight-light my-4">Prijava</h3></div>
+                                <div class="card-body">
+                                    <!--begin::Form-->
+                                    <form method="post" action="/account/login" id="loginForm">
+                                        @if (!string.IsNullOrWhiteSpace(errorMsg))
+                                        {
+                                            <span class="invalid-feedback d-block mb-3">@errorMsg</span>
+                                        }
+                                        <div class="form-group" @onclick='() => errorMsg = ""'>
+                                            <label class="small mb-1" for="inputUsername">Korisničko ime</label>
+                                            <input @bind="loginForm.Username" class="form-control py-4" autocomplete="off" @onkeyup="PressKey" name="username" placeholder="Molimo unesite korisničko ime" />
+                                        </div>
+                                        <div class="form-group" @onclick='() => errorMsg = ""'>
+                                            <label class="small mb-1" for="inputPassword">Lozinka</label>
+                                            <input @bind="loginForm.Password" class="form-control py-4" autocomplete="off" @onkeyup="PressKey" name="password" type="password" placeholder="Molimo unesite lozinku" />
+                                        </div>
+                                        <div class="form-group d-flex align-items-center justify-content-between mt-4 mb-0">
+                                            <button type="button" class="btn btn-primary btn-block mt-3" @onclick="Submit">Prijava</button>
+                                        </div>
+                                    </form>
+                                    <!--end::Form-->
+                                </div>
+                                <div class="card-footer text-center">
+                                    <div class="small"><a href="/registracija">Još nemaš korisnički račun? Registriraj se!</a></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+        <Footer />
+    </div>
+</div>
+
+@code {
+
+    //Input Model
+    private LoginForm loginForm = new LoginForm();
+
+    //If login failed, show error msg
+    private string errorMsg = "";
+
+    //Does user submit form?
+    private bool submited = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        //Check does "user" is already authenticated 
+        if (HttpContextAccessor.HttpContext.User.Identity.IsAuthenticated)
+        {
+            //If is authenticated, navigate to home page
+            NavigationManager.NavigateTo("/");
+        }
+
+        if(firstRender)
+        {
+            //Change "Page Title"
+            await JSRuntime.InvokeVoidAsync("ChangePageTitle", "Veterinarska stanica | Prijava");
+        }
+    }
+
+    /// <summary>
+    /// Check if user press "Enter", go to "Submit" method
+    /// </summary>
+    /// <param name="args"></param>
+    /// <returns></returns>
+    private async Task PressKey(KeyboardEventArgs args)
+    {
+        // Check if user click on enter
+        if (args.Key == "Enter")
+            await Submit();
+    }
+
+    /// <summary>
+    /// Submit Method
+    /// </summary>
+    /// <returns></returns>
+    private async Task Submit()
+    {
+        //Check does user already submit form
+        if(!submited)
+        {
+            //Set submited to true
+            submited = true;
+
+            //Check does user with specific password exist in DB
+            if(!string.IsNullOrWhiteSpace(loginForm.Username) && !string.IsNullOrWhiteSpace(loginForm.Password) && await UserService.CheckLogin(loginForm.Username, loginForm.Password))
+            {
+                //Make post request to "Account Controller" with username and password (make form submited)
+                await JSRuntime.InvokeAsync<object>("SubmitLoginForm");
+            }
+            else
+            {
+                //Set errorMsg
+                errorMsg = "Pogrešno korisničko ime ili lozinka.";
+
+                //Make password empty
+                loginForm.Password = "";
+
+                //refresh page data
+                await InvokeAsync(() => StateHasChanged());
+            }
+
+            //Set submited to false
+            submited = false;
+        }
+    }
+}

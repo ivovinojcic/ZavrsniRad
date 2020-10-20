@@ -1,0 +1,42 @@
+﻿@using Microsoft.AspNetCore.Http
+@using VeterinarskaStanica.Service.AppService 
+@using VeterinarskaStanica.Model.Core
+
+@inject IHttpContextAccessor ContextAccessor
+@inject IUserService UserService
+
+<nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
+    <div class="sb-sidenav-menu">
+        <div class="nav">
+            <div class="sb-sidenav-menu-heading">Početna</div>
+            <a class="nav-link active" href="/">
+                <div class="sb-nav-link-icon">
+                    <i class="fas fa-home"></i>
+                </div>
+                Početna
+            </a>
+        </div>
+    </div>
+    <div class="sb-sidenav-footer">
+        <div class="small">Prijavljeni ste kao:</div>
+        @userNameSurname
+    </div>
+</nav>
+
+@code {
+    private string userNameSurname = " - - - ";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        {
+            User user = await UserService.GetUser(ContextAccessor.HttpContext.User.Identity.Name);
+
+            userNameSurname = $"{user.Name} {user.Surname}";
+
+            await InvokeAsync(() => StateHasChanged());
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+}

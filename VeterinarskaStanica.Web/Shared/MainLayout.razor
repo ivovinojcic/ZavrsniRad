@@ -1,0 +1,36 @@
+﻿@using VeterinarskaStanica.Web.Helper
+
+@inherits LayoutComponentBase
+@inject AppState State 
+
+<div class="@(State.LeftNav ? "" : "sb-sidenav-toggled")">
+    <NavTop />
+
+    <div id="layoutSidenav">
+        <div id="layoutSidenav_nav">
+            <NavLeft />
+        </div>
+        <div id="layoutSidenav_content">
+            @Body
+            <Footer />
+        </div>
+    </div>
+</div>
+
+@code {
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if(firstRender)
+        {
+            State.PropertyChanged += StateChanged;
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private void StateChanged(object o, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        StateHasChanged();
+    }
+}
