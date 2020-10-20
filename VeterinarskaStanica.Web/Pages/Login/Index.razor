@@ -3,12 +3,14 @@
 @using VeterinarskaStanica.Model.Model.User
 @using VeterinarskaStanica.Service.AppService
 @using Microsoft.AspNetCore.Http
+@using VeterinarskaStanica.Web.Helper
 
 @inject IUserService UserService
 @inject IHttpContextAccessor HttpContextAccessor
 @inject NavigationManager NavigationManager
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
+@inject AppState State
 
 <div class="bg-primary">
     <div id="layoutAuthentication">
@@ -30,12 +32,17 @@
                                             <label class="small mb-1" for="inputUsername">Korisničko ime</label>
                                             <input @bind="loginForm.Username" class="form-control py-4" autocomplete="off" @onkeyup="PressKey" name="username" placeholder="Molimo unesite korisničko ime" />
                                         </div>
-                                        <div class="form-group" @onclick='() => errorMsg = ""'>
-                                            <label class="small mb-1" for="inputPassword">Lozinka</label>
-                                            <input @bind="loginForm.Password" class="form-control py-4" autocomplete="off" @onkeyup="PressKey" name="password" type="password" placeholder="Molimo unesite lozinku" />
+                                        <label class="small mb-1" for="inputPassword">Lozinka</label>
+                                        <div class="input-group" @onclick='() => errorMsg = ""'>
+                                            <input @bind="loginForm.Password" class="form-control py-4" autocomplete="off" @onkeyup="PressKey" id="inputPassword" name="password" type="@(showPassword ? "text" : "password")" placeholder="Molimo unesite lozinku" />
+                                            <div class="input-group-append">
+                                                <button class="btn" style="border: 1px solid #ced4da;" type="button" @onclick="ShowHidePassword">
+                                                    <i class="fa fa-eye@(showPassword ? "-slash" : "")"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                         <div class="form-group d-flex align-items-center justify-content-between mt-4 mb-0">
-                                            <button type="button" class="btn btn-primary btn-block mt-3" @onclick="Submit">Prijava</button>
+                                            <button type="button" class="btn btn-primary btn-block mt-3" @onclick="Submit">@(spinner ? (MarkupString)"<span class=\"spinner-border spinner-border-sm\"></span>" : (MarkupString)"Prijava")</button>
                                         </div>
                                     </form>
                                     <!--end::Form-->
@@ -61,8 +68,10 @@
     //If login failed, show error msg
     private string errorMsg = "";
 
+    private bool showPassword = false;
+
     //Does user submit form?
-    private bool submited = false;
+    private bool spinner = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -75,6 +84,16 @@
 
         if(firstRender)
         {
+            //Check does user make registration
+            if(!string.IsNullOrWhiteSpace(State.RegisteredUsername))
+            {
+                loginForm.Username = State.RegisteredUsername;
+
+                State.RegisteredUsername = null;
+
+                await InvokeAsync(() => StateHasChanged());
+            }
+
             //Change "Page Title"
             await JSRuntime.InvokeVoidAsync("ChangePageTitle", "Veterinarska stanica | Prijava");
         }
@@ -99,14 +118,17 @@
     private async Task Submit()
     {
         //Check does user already submit form
-        if(!submited)
+        if(!spinner)
         {
-            //Set submited to true
-            submited = true;
+            //Set spinner to true
+            spinner = true;
 
             //Check does user with specific password exist in DB
-            if(!string.IsNullOrWhiteSpace(loginForm.Username) && !string.IsNullOrWhiteSpace(loginForm.Password) && await UserService.CheckLogin(loginForm.Username, loginForm.Password))
+            if (!string.IsNullOrWhiteSpace(loginForm.Username) && !string.IsNullOrWhiteSpace(loginForm.Password) && await UserService.CheckLogin(loginForm.Username, loginForm.Password))
             {
+                //refresh page data
+                await InvokeAsync(() => StateHasChanged());
+
                 //Make post request to "Account Controller" with username and password (make form submited)
                 await JSRuntime.InvokeAsync<object>("SubmitLoginForm");
             }
@@ -117,13 +139,22 @@
 
                 //Make password empty
                 loginForm.Password = "";
-
-                //refresh page data
-                await InvokeAsync(() => StateHasChanged());
             }
 
-            //Set submited to false
-            submited = false;
+            //Set spinner to false
+            spinner = false;
+
+            //refresh page data
+            await InvokeAsync(() => StateHasChanged());
         }
+    }
+
+    /// <summary>
+    /// Change "Password input type"
+    /// </summary>
+    private void ShowHidePassword()
+    {
+        showPassword = !showPassword;
+        StateHasChanged();
     }
 }

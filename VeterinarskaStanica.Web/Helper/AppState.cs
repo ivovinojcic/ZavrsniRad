@@ -18,13 +18,31 @@ namespace VeterinarskaStanica.Web.Helper
         }
 
         private bool _leftNav = true;
+        private string _registeredUsername = null;
 
+        /// <summary>
+        /// Does LeftNav is Active?
+        /// </summary>
         public bool LeftNav
         {
             get => _leftNav;
             set
             {
                 _leftNav = value;
+                OnPropertyChanged();
+            }
+        }
+
+        /// <summary>
+        /// When user make success registration
+        /// Save "Username" into State, and show on login page
+        /// </summary>
+        public string RegisteredUsername
+        {
+            get => _registeredUsername;
+            set
+            {
+                _registeredUsername = value;
                 OnPropertyChanged();
             }
         }

@@ -19,7 +19,7 @@ namespace VeterinarskaStanica.Model.Model.User
         [Required(ErrorMessage = "Broj telefona je obavezan")]
         [RegularExpression("^[0-9]*$", ErrorMessage = "Molimo unesite ispravan broj telefona")]
         public string PhoneNumber { get; set; }
-        [MinLength(6, ErrorMessage = "Korisničko ime mora sadržavati najmanje 6 znakova")]
+        [RegularExpression("^(?!.*[-_]{2,})(?=^[^-_].*[^-_]$)[\\w\\s-]{3,9}$", ErrorMessage = "Molimo unesite ispravno korisničko ime")]
         [Required(ErrorMessage = "Korisničko ime je obavezno")]
         public string Username { get; set; }
         [Required(ErrorMessage = "Lozinka je obavezna")]

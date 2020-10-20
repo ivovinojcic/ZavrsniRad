@@ -70,6 +70,10 @@ namespace VeterinarskaStanica.Model.Core
                     .HasColumnType("datetime")
                     .HasAnnotation("Relational:ColumnType", "datetime");
 
+                entity.Property(e => e.CreateDate)
+                    .HasColumnType("datetime")
+                    .HasAnnotation("Relational:ColumnType", "datetime");
+
                 entity.Property(e => e.Name).HasMaxLength(255);
 
                 entity.Property(e => e.Password).HasMaxLength(255);

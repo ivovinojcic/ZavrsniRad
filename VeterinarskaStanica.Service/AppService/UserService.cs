@@ -25,6 +25,13 @@ namespace VeterinarskaStanica.Service.AppService
         /// <param name="username"></param>
         /// <returns></returns>
         Task<User> GetUser(string username);
+
+        /// <summary>
+        /// Create new "User"
+        /// </summary>
+        /// <param name="user"></param>
+        /// <returns></returns>
+        Task CreateUser(User user);
     }
 
     public class UserService : RepositoryBase<User>, IRepository<User>, IUserService
@@ -44,6 +51,25 @@ namespace VeterinarskaStanica.Service.AppService
         public async Task<User> GetUser(string username)
         {
             return await DbContext.Users.Where(x => x.Username.Equals(username)).SingleOrDefaultAsync();
+        }
+
+        public async Task CreateUser(User user)
+        {
+            // Decrypt password
+            user.Password = user.Password.SHA512Hash();
+            user.CreateDate = DateTime.Now;
+
+            //Set "user" state to "Added"
+            DbContext.Entry(user).State = EntityState.Added;
+
+            // Add to database
+            await Add(user);
+
+            // Save changes
+            await _unitOfWork.Commit();
+
+            // Stop tracking this "User" 
+            DbContext.Entry(user).State = EntityState.Detached;
         }
     }
 }

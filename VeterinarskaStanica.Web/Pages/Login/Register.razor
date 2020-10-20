@@ -2,15 +2,24 @@
 
 @using Microsoft.AspNetCore.Http
 @using VeterinarskaStanica.Model.Model.User
+@using VeterinarskaStanica.Model.Core
+@using VeterinarskaStanica.Web.Helper
+@using VeterinarskaStanica.Service.AppService
+@using CurrieTechnologies.Razor.SweetAlert2
+@using AutoMapper
 
 @inject IHttpContextAccessor HttpContextAccessor
 @inject NavigationManager NavigationManager
 @inject IJSRuntime JSRuntime
+@inject IMapper Mapper
+@inject AppState State
+@inject IUserService UserService
+@inject SweetAlertService Swal
 
 <div class="bg-primary">
     <div id="layoutAuthentication">
         <div id="layoutAuthentication_content" class="d-flex align-items-center justify-content-center">
-            <main class="d-flex" style="width:470px;">
+            <main class="d-flex" style="width:500px;">
                 <div class="container py-5">
                     <div class="row justify-content-center mx-0">
                         <div class="col-12">
@@ -35,28 +44,50 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="form-group">
-                                            <label class="small mb-1" for="inputBirthDate">Datum rođenja</label>
-                                            <InputText @bind-Value="registerForm.BirthDate" id="inputBirthDate" class="form-control py-4" type="date" />
-                                            <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.BirthDate)" /></span>
-                                        </div>
-                                        <div class="form-group">
-                                            <label class="small mb-1" for="inputAddress">Adresa</label>
-                                            <InputText @bind-Value="registerForm.Address" id="inputAddress" class="form-control py-4" type="text" />
-                                            <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Address)" /></span>
+                                        <div class="form-row">
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="small mb-1" for="inputBirthDate">Datum rođenja</label>
+                                                    <InputText @bind-Value="registerForm.BirthDate" id="inputBirthDate" class="form-control py-4" type="date" />
+                                                    <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.BirthDate)" /></span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="small mb-1" for="inputAddress">Adresa</label>
+                                                    <InputText @bind-Value="registerForm.Address" id="inputAddress" class="form-control py-4" placeholder="Unesite adresu" type="text" />
+                                                    <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Address)" /></span>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="form-group">
                                             <label class="small mb-1" for="inputPhoneNumber">Broj telefona</label>
-                                            <InputText @bind-Value="registerForm.PhoneNumber" id="inputPhoneNumber" class="form-control py-4" type="text" />
+                                            <InputText @bind-Value="registerForm.PhoneNumber" id="inputPhoneNumber" class="form-control py-4" placeholder="Unesite broj telefona" type="text" />
                                             <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.PhoneNumber)" /></span>
                                         </div>
-                                        <div class="form-group">
-                                            <label class="small mb-1" for="inputPassword">Lozinka</label>
-                                            <InputText @bind-Value="registerForm.Password" id="inputPassword" class="form-control py-4" type="password" />
-                                            <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Password)" /></span>
+                                        <div class="form-row">
+                                            <div class="col-md-6">
+                                                <div class="form-group">
+                                                    <label class="small mb-1" for="inputUsername">Korisničko ime</label>
+                                                    <InputText @bind-Value="registerForm.Username" id="inputUsername" class="form-control py-4" placeholder="Unesite korisničko ime" type="text" />
+                                                    <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Username)" /></span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="small mb-1" for="inputPassword">Lozinka</label>
+                                                <div class="input-group">
+                                                    <InputText @bind-Value="registerForm.Password" id="inputPassword" class="form-control py-4" placeholder="Unesite lozinku" type="@(showPassword ? "text" : "password")" />
+                                                    <div class="input-group-append">
+                                                        <button class="btn" style="border: 1px solid #ced4da;" type="button" @onclick="ShowHidePassword">
+                                                            <i class="fa fa-eye@(showPassword ? "-slash" : "")"></i>
+                                                        </button>
+                                                    </div>
+                                                    <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Password)" /></span>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="form-group mt-4 mb-0">
-                                            <button type="submit" class="btn btn-primary btn-block">Kreiraj račun</button>
+                                            <button type="@(spinner ? "button" : "submit")" class="btn btn-primary btn-block">@(spinner ? (MarkupString)"<span class=\"spinner-border spinner-border-sm\"></span>" : (MarkupString)"Kreiraj račun")</button>
                                         </div>
                                     </EditForm>
                                 </div>
@@ -77,6 +108,9 @@
 
     private RegisterForm registerForm = new RegisterForm();
 
+    private bool showPassword = false;
+    private bool spinner = false;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         //Check does "user" is already authenticated
@@ -95,7 +129,81 @@
 
     private async Task Submit()
     {
-        await InvokeAsync(() => StateHasChanged());
+        //Check does user already "submit" form
+        if (!spinner)
+        {
+            //Start spinner
+            spinner = true;
+            await InvokeAsync(() => StateHasChanged());
+
+            //Check does username already exist
+            if ((await UserService.GetUser(registerForm.Username)) == null)
+            {
+                //Set username to lower
+                registerForm.Username = registerForm.Username.ToLower().Trim();
+
+                //Map modal object "register form" into "User" object
+                User user = Mapper.Map<User>(registerForm);
+
+                //Set registered user role to "Client"
+                user.RoleId = 3;
+
+                //Save user object into DB
+                await UserService.CreateUser(user);
+
+                //Save username into State
+                State.RegisteredUsername = user.Username;
+
+                //Display Success msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Registracija uspješna",
+                    Text = "Korisnički račun je kreiran",
+                    Icon = SweetAlertIcon.Success,
+                    ConfirmButtonText = "Natrag na prijavu"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    //Redirect to login page
+                    NavigationManager.NavigateTo("/prijava");
+                });
+            }
+            else
+            {
+                //Display error msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Registracija neuspješna",
+                    Text = "Korisničko ime je zauzeto",
+                    Icon = SweetAlertIcon.Warning,
+                    ConfirmButtonText = "Natrag na registraciju"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    //Remove username from registerForm
+                    registerForm.Username = "";
+
+                    //Stop spinner
+                    spinner = false;
+                    await InvokeAsync(() => StateHasChanged());
+                });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Change "Password input type"
+    /// </summary>
+    private void ShowHidePassword()
+    {
+        showPassword = !showPassword;
+        StateHasChanged();
     }
 
 }
