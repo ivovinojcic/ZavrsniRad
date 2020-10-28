@@ -4,17 +4,28 @@
 
 @inject IHttpContextAccessor ContextAccessor
 @inject IUserService UserService
+@inject NavigationManager NavigationManager
 
 <nav class="sb-sidenav accordion sb-sidenav-dark" id="sidenavAccordion">
     <div class="sb-sidenav-menu">
         <div class="nav">
             <div class="sb-sidenav-menu-heading">Početna</div>
-            <a class="nav-link active" href="/">
+            <a class="nav-link @(page.Equals("") ? "active" : "")" href="/">
                 <div class="sb-nav-link-icon">
-                    <i class="fas fa-home"></i>
+                    <i class="fa fa-home"></i>
                 </div>
                 Početna
             </a>
+            @if (ContextAccessor.HttpContext.User.IsInRole("Admin") || ContextAccessor.HttpContext.User.IsInRole("Zaposlenik"))
+            {
+                <div class="sb-sidenav-menu-heading">Korisnici</div>
+                <a class="nav-link @(page.Equals("korisnici") ? "active" : "")" href="/korisnici">
+                    <div class="sb-nav-link-icon">
+                        <i class="fa fa-user"></i>
+                    </div>
+                    Lista korisnika
+                </a>
+            }
         </div>
     </div>
     <div class="sb-sidenav-footer">
@@ -24,7 +35,15 @@
 </nav>
 
 @code {
+
     private string userNameSurname = " - - - ";
+    private string page = "";
+
+    protected override void OnInitialized()
+    {
+        //Call method "LocationChanged" when location is changed
+        NavigationManager.LocationChanged += LocationChanged;
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -38,5 +57,19 @@
         }
 
         await base.OnAfterRenderAsync(firstRender);
+    }
+
+    /// <summary>
+    /// Update string Page when Location is changed
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
+    private async void LocationChanged(object sender, LocationChangedEventArgs e)
+    {
+        page = NavigationManager.Uri.Replace(NavigationManager.BaseUri, "").ToLower();
+
+        await InvokeAsync(
+            () => StateHasChanged()
+        );
     }
 }

@@ -1,0 +1,298 @@
+﻿@using AutoMapper
+@using VeterinarskaStanica.Model.Model.User
+@using VeterinarskaStanica.Model.Core
+@using VeterinarskaStanica.Service.AppService
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Http
+
+@inject IUserService UserService
+@inject IMapper Mapper
+@inject SweetAlertService Swal
+@inject NavigationManager NavigationManager
+@inject IHttpContextAccessor HttpContextAccessor
+
+<EditForm Model="@registerForm" OnValidSubmit="Submit">
+    <DataAnnotationsValidator />
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="small mb-1" for="inputFirstName">Ime</label>
+                <InputText @bind-Value="registerForm.Name" id="inputFirstName" class="form-control py-4" type="text" placeholder="Unesite ime" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Name)" /></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="small mb-1" for="inputLastName">Prezime</label>
+                <InputText @bind-Value="registerForm.Surname" id="inputLastName" class="form-control py-4" type="text" placeholder="Unesite prezime" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Surname)" /></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="small mb-1" for="inputBirthDate">Datum rođenja</label>
+                <InputText @bind-Value="registerForm.BirthDate" id="inputBirthDate" class="form-control py-4" type="date" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.BirthDate)" /></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="small mb-1" for="inputAddress">Adresa</label>
+                <InputText @bind-Value="registerForm.Address" id="inputAddress" class="form-control py-4" placeholder="Unesite adresu" type="text" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Address)" /></span>
+            </div>
+        </div>
+        <div class="col-md-12">
+            <label class="small mb-1" for="inputPhoneNumber">Broj telefona</label>
+            <InputText @bind-Value="registerForm.PhoneNumber" id="inputPhoneNumber" class="form-control py-4" placeholder="Unesite broj telefona" type="text" />
+            <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.PhoneNumber)" /></span>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="small mb-1" for="inputUsername">Korisničko ime</label>
+                <InputText @bind-Value="registerForm.Username" id="inputUsername" class="form-control py-4" placeholder="Unesite korisničko ime" type="text" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => registerForm.Username)" /></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <label class="small mb-1" for="inputPassword">Lozinka</label>
+            <div class="input-group" @onclick='() => passwordErrorMsg = ""'>
+                <InputText @bind-Value="registerForm.Password" id="inputPassword" class="form-control py-4" placeholder="Unesite lozinku" type="@(showPassword ? "text" : "password")" />
+                <div class="input-group-append">
+                    <button class="btn" style="border: 1px solid #ced4da;" type="button" @onclick="ShowHidePassword">
+                        <i class="fa fa-eye@(showPassword ? "-slash" : "")"></i>
+                    </button>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(passwordErrorMsg))
+                {
+                    <span class="invalid-feedback d-block">@passwordErrorMsg</span>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="submit" class="btn btn-success">
+            @(spinner ? (MarkupString)("<span class='spinner-border spinner-border-sm' role='status' aria-hidden='true'></span> Učitavanje...") : (MarkupString)("Spremi"))
+        </button>
+        <button type="button" class="btn btn-outline-danger" @onclick="@(() => BlazoredModal.Cancel())" data-dismiss="modal">Odustani</button>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter] public int userId { get; set; }
+    [Parameter] public int roleId { get; set; }
+    [Parameter] public bool selfEdit { get; set; }
+    [CascadingParameter] BlazoredModalInstance BlazoredModal { get; set; }
+
+    private RegisterForm registerForm = new RegisterForm();
+
+    private bool showPassword = false;
+    private string passwordErrorMsg = "";
+
+    private bool spinner = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        //Check is edit or create
+        if (userId != 0)
+        {
+            // Start spinner
+            spinner = true;
+
+            //Catch user from DB
+            User user = await UserService.GetUser(userId);
+
+            // Map user into registerForm
+            registerForm = Mapper.Map<RegisterForm>(user);
+
+            registerForm.Password = "";
+
+            //Parse Birthdate into string with specific format
+            registerForm.BirthDate = user.BirthDate?.ToString("yyyy-MM-dd");
+
+            // Stop spinner
+            spinner = false;
+
+            await InvokeAsync(
+                () => StateHasChanged()
+            );
+        }
+        else
+        {
+            registerForm.RoleId = 1;
+        }
+    }
+
+    private async Task Submit()
+    {
+        if (!spinner)
+        {
+            //Start spinner
+            spinner = true;
+            await InvokeAsync(() => StateHasChanged());
+
+            //Enter password validation if user need to be created or user is edited but decide to change password
+            if (userId == 0 || !string.IsNullOrWhiteSpace(registerForm.Password))
+            {
+                //Password validation
+                if (string.IsNullOrWhiteSpace(registerForm.Password))
+                {
+                    passwordErrorMsg = "Lozinka je obavezna!";
+
+                    registerForm.Password = "";
+
+                    //Stop spinner
+                    spinner = false;
+
+                    return;
+                }
+
+                //Password validation
+                if (registerForm.Password.Length <= 6 || registerForm.Password.Length >= 16)
+                {
+                    passwordErrorMsg = "Lozinka mora sadržavati minimalno 6 znakova i maksimalno 15";
+
+                    registerForm.Password = "";
+
+                    //Stop spinner
+                    spinner = false;
+
+                    return;
+                }
+
+                //Password validation
+                if (registerForm.Password.Contains(" "))
+                {
+                    passwordErrorMsg = "Molimo Vas da ne koristite razmak";
+
+                    registerForm.Password = "";
+
+                    //Stop spinner
+                    spinner = false;
+
+                    return;
+                }
+            }
+
+            //Try to catch user with registerForm.Username
+            User tryUser = await UserService.GetUser(registerForm.Username);
+
+            //Check does username already exist
+            bool validUsername = tryUser == null;
+
+            //If user need to be "edited", check does that user have that username
+            if (userId != 0 && !validUsername)
+            {
+                validUsername = tryUser.Username.Equals((await UserService.GetUser(userId)).Username);
+            }
+
+            //Check does username already exist
+            if (validUsername)
+            {
+                //Set username to lower
+                registerForm.Username = registerForm.Username.ToLower().Trim();
+
+                //Try to add - edit user
+                try
+                {
+                    //Map modal object "register form" into "User" object
+                    User user = Mapper.Map<User>(registerForm);
+
+                    if (userId == 0)
+                    {
+                        //Save user object into DB
+                        await UserService.CreateUser(user);
+                    }
+                    else
+                    {
+                        user.Id = userId;
+
+                        //Save user object into DB
+                        await UserService.EditUser(user);
+                    }
+
+                    bool logout = selfEdit && !user.Username.Equals(HttpContextAccessor.HttpContext.User.Identity.Name);
+
+                    //Display Success msg
+                    //Adding sweet alert options
+                    SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                    {
+                        Title = "Korisnik je uspješno " + (userId == 0 ? "kreiran" : "editiran"),
+                        Text = $"{(selfEdit ? "Vaš" : "Korisnički")} račun je uspješno " + (userId == 0 ? "kreiran" : "editiran"),
+                        Icon = SweetAlertIcon.Success,
+                        ConfirmButtonText = $"Natrag na {(logout ? "prijavu" : "izlist korisnika")}"
+                    };
+
+                    //Fire sweet alert
+                    await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                    {
+                        if(logout)
+                        {
+                            NavigationManager.NavigateTo("/account/logout", true);
+                        }
+                        else
+                        {
+                            await BlazoredModal.Cancel();
+                        }
+                    });
+                }
+                catch
+                {
+                    //Display error msg
+                    //Adding sweet alert options
+                    SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                    {
+                        Title = "Greška na sustavu",
+                        Text = "Došlo je do pogreške, molimo pokušajte ponovno kasnije",
+                        Icon = SweetAlertIcon.Warning,
+                        ConfirmButtonText = "Uredu"
+                    };
+
+                    //Fire sweet alert
+                    await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                    {
+                        //Stop spinner
+                        spinner = false;
+                        await InvokeAsync(() => StateHasChanged());
+
+                        NavigationManager.NavigateTo("", true);
+                    });
+                }
+            }
+            else
+            {
+                //Display error msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Slanje neuspješno",
+                    Text = "Korisničko ime je zauzeto",
+                    Icon = SweetAlertIcon.Warning,
+                    ConfirmButtonText = "Ispravi"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    //Remove username from registerForm
+                    registerForm.Username = "";
+
+                    //Stop spinner
+                    spinner = false;
+                    await InvokeAsync(() => StateHasChanged());
+                });
+            }
+        }
+
+    }
+
+    /// <summary>
+    /// Change "Password input type"
+    /// </summary>
+    private void ShowHidePassword()
+    {
+        showPassword = !showPassword;
+        StateHasChanged();
+    }
+}

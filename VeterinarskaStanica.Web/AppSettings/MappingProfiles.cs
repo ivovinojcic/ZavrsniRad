@@ -9,6 +9,7 @@ namespace VeterinarskaStanica.Web.AppSettings
         public MappingProfiles()
         {
             CreateMap<RegisterForm, User>();
+            CreateMap<User, RegisterForm>();
         }
     }
 }

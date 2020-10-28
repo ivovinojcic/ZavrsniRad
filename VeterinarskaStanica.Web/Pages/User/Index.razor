@@ -1,0 +1,394 @@
+﻿@page "/korisnici"
+
+@using VeterinarskaStanica.Service.AppService
+@using VeterinarskaStanica.Model.Model.Datatable
+@using VeterinarskaStanica.Model.Core
+@using CurrieTechnologies.Razor.SweetAlert2
+@using VeterinarskaStanica.Web.Helper
+@using Microsoft.AspNetCore.Http
+
+@attribute [Authorize(Roles = "Admin, Zaposlenik")]
+@layout MainLayout
+
+@inject IJSRuntime JSRuntime
+@inject IUserService UserService
+@inject SweetAlertService Swal
+@inject AppState State
+@inject IModalService Modal
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager NavigationManager
+
+<main>
+    <div class="container-fluid">
+        <h1 class="mt-4">Korisnici</h1>
+        <div class="card mb-4 mt-4">
+            <div class="card-header">
+                <div class="float-left">
+                    <i class="fa fa-table mr-1"></i>
+                    Tablica @(roleId == 1 ? ("administratora") : (roleId == 2 ? ("zaposlenika") : ("klijenata")))
+                </div>
+                <div class="float-right">
+                    <button @onclick="@(() => OpenModal(0))" class="btn btn-primary ml-2">
+                        Dodaj @(roleId == 1 ? ("administratora") : (roleId == 2 ? ("zaposlenika") : ("klijenta"))) <i class="fa fa-plus ml-2"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <div id="dataTable_wrapper" class="dataTables_wrapper dt-bootstrap4">
+                        <div class="row mb-3">
+                            <div class="col-sm-12 col-md-12">
+                                <div class="dataTables_length" id="dataTable_length">
+                                    <label>
+                                        Prikaži
+                                        <select name="dataTable_length" aria-controls="dataTable" class="custom-select custom-select-sm form-control form-control-sm" @onchange="@((ChangeEventArgs e) => ChangePerPage(Int32.Parse(e.Value.ToString())))">
+                                            <option value="10">10</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                            <option value="100">100</option>
+                                        </select> rezultata
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-sm-12 col-md-6 mt-4">
+                                <button @onclick="() => ChangeRoleView(1)" class="btn mr-1 @(roleId == 1 ? ("btn-primary") : ("btn-outline-dark"))">Administratori</button>
+                                <button @onclick="() => ChangeRoleView(2)" class="btn mr-1 @(roleId == 2 ? ("btn-primary") : ("btn-outline-dark"))">Zaposlenici</button>
+                                <button @onclick="() => ChangeRoleView(3)" class="btn @(roleId == 3 ? ("btn-primary") : ("btn-outline-dark"))">Klijenti</button>
+                            </div>
+                            <div class="col-sm-12 col-md-6 mt-4">
+                                <div id="dataTable_filter" class="dataTables_filter">
+                                    <label>
+                                        Pretraži:
+                                        <input type="search" class="form-control form-control-sm" placeholder="Pretraži.." aria-controls="dataTable" @oninput="@((ChangeEventArgs args) => FilterChangedAsync(args.Value.ToString()))">
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        @if (users.Count < 1 && !firstLoading)
+                        {
+                            <div class="text-center mt-5">
+                                <p>Trenutno nema podataka koji zadovoljavaju postavljene kriterije pretrage.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <table class="table table-bordered dataTable" id="dataTable" width="100%" cellspacing="0" role="grid" aria-describedby="dataTable_info" style="width: 100%;">
+                                        <thead>
+                                            <tr role="row">
+                                                <th @onclick='() => SortBy("Id")' class="sorting@(options.SortBy.Equals("Id") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 75px;">#</th>
+                                                <th @onclick='() => SortBy("Name")' class="sorting@(options.SortBy.Equals("Name") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Ime</th>
+                                                <th @onclick='() => SortBy("Surname")' class="sorting@(options.SortBy.Equals("Surname") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Prezime</th>
+                                                <th @onclick='() => SortBy("Username")' class="sorting@(options.SortBy.Equals("Username") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Korisničko ime</th>
+                                                <th @onclick='() => SortBy("PhoneNumber")' class="sorting@(options.SortBy.Equals("PhoneNumber") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Broj telefona</th>
+                                                <th tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Akcije</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (User user in users)
+                                            {
+                                                <tr role="row" class="@(users.IndexOf(user) % 2 == 0 ? "even" : "odd")">
+                                                    <td>@user.Id</td>
+                                                    <td>@user.Name</td>
+                                                    <td>@user.Surname</td>
+                                                    <td>@user.Username</td>
+                                                    <td>@user.PhoneNumber</td>
+                                                    <td>
+                                                        <button @onclick="@(() => OpenModal(user.Id))" class="btn btn-primary" title="Uredi">
+                                                            <i class="fa fa-edit"></i>
+                                                        </button>
+                                                        <button @onclick="() => DeleteUser(user.Id)" class="btn btn-danger" title="Izbriši">
+                                                            <i class="fa fa-trash"></i>
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="row mt-4">
+                                <div class="col-sm-12 col-md-5">
+                                    <div class="dataTables_info" id="dataTable_info" role="status" aria-live="polite">Trenutno prikazano @(((options.Page - 1) * options.PerPage) + 1) do @(users.Count + ((options.Page - 1) * options.PerPage)) od @options.TotalRecords podataka</div>
+                                </div>
+                                @if (options.TotalPages > 1)
+                                {
+                                    <div class="col-sm-12 col-md-7">
+                                        <div class="dataTables_paginate paging_simple_numbers" id="dataTable_paginate">
+                                            <ul class="pagination">
+                                                @if (options.TotalPages > 5)
+                                                {
+                                                    <li class="paginate_button page-item previous @(options.FirstShowPage == 1 ? (MarkupString)"disabled" : (MarkupString)"")" id="kt_table_1_previous">
+                                                        <a aria-controls="dataTable" data-dt-idx="0" tabindex="0" class="page-link" @onclick="@(() => ChangePage(1))">
+                                                            <i class="fas fa-chevron-left"></i>
+                                                            <i class="fas fa-chevron-left"></i>
+                                                        </a>
+                                                    </li>
+                                                }
+                                                <li class="paginate_button page-item previous @(options.Page == options.FirstShowPage ? (MarkupString)"disabled" : (MarkupString)"")" id="kt_table_1_previous">
+                                                    <a aria-controls="dataTable" data-dt-idx="0" tabindex="0" class="page-link" @onclick="@(() => ChangePage(options.Page - 1))">
+                                                        <i class="fas fa-chevron-left"></i>
+                                                    </a>
+                                                </li>
+                                                <li class="paginate_button page-item @(options.Page == options.FirstShowPage ? (MarkupString)"active" : (MarkupString)"")">
+                                                    <a aria-controls="dataTable" data-dt-idx="1" tabindex="0" class="page-link" @onclick="@(() => ChangePage(options.FirstShowPage))">@options.FirstShowPage</a>
+                                                </li>
+                                                @for (var i = (options.FirstShowPage + 1); i <= (options.TotalPages > options.LastShowPage ? options.LastShowPage : options.TotalPages); i++)
+                                                {
+                                                    var currentIndex = i;
+                                                    <li class="paginate_button page-item @(options.Page == i ? (MarkupString)"active" : (MarkupString)"")">
+                                                        <a aria-controls="dataTable" data-dt-idx="@i" tabindex="0" class="page-link" @onclick="@(() => ChangePage(currentIndex))">@i</a>
+                                                    </li>
+                                                }
+                                                <li class="paginate_button page-item previous @(options.TotalPages == options.Page ? (MarkupString)"disabled" : (MarkupString)"")" id="kt_table_1_previous">
+                                                    <a aria-controls="dataTable" data-dt-idx="0" tabindex="0" class="page-link" @onclick="@(() => ChangePage(options.Page + 1))">
+                                                        <i class="fas fa-chevron-right"></i>
+                                                    </a>
+                                                </li>
+                                                @if (options.TotalPages > 5)
+                                                {
+                                                    <li class="paginate_button page-item previous @(options.LastShowPage == options.TotalPages ? (MarkupString)"disabled" : (MarkupString)"")" id="kt_table_1_previous">
+                                                        <a aria-controls="dataTable" data-dt-idx="0" tabindex="0" class="page-link" @onclick="@(() => ChangePage(options.TotalPages))">
+                                                            <i class="fas fa-chevron-right"></i>
+                                                            <i class="fas fa-chevron-right"></i>
+                                                        </a>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    </div>
+                                }
+
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+@code{
+
+    private List<User> users = new List<User>();
+    private DatatableOptions options = new DatatableOptions();
+
+    private bool firstLoading = true;
+    private int roleId = 3;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            //Change "Page Title"
+            await JSRuntime.InvokeVoidAsync("ChangePageTitle", "Veterinarska stanica | Korisnici");
+
+            //Update list of users
+            await UpdateOptions();
+
+            firstLoading = false;
+
+            await InvokeAsync(() => StateHasChanged());
+        }
+    }
+
+    /// <summary>
+    /// Change List of users by parameter "newRole"
+    /// </summary>
+    private async Task ChangeRoleView(int newRole)
+    {
+        if (roleId != newRole)
+        {
+            roleId = newRole;
+
+            //Update list of users
+            await UpdateOptions();
+
+            await InvokeAsync(() => StateHasChanged());
+        }
+    }
+
+    #region Table methods
+
+    /// <summary>
+    /// Update list options
+    /// </summary>
+    /// <returns></returns>
+    private async Task UpdateOptions()
+    {
+        // Get users from database with specific options
+        users = await UserService.GetUsers(options, roleId);
+
+        // Get number of total record in database
+        options.TotalRecords = await UserService.CountUsers(options, roleId);
+
+        // Update Options
+        options = UserService.UpdateDatatableOptions(options);
+    }
+
+    /// <summary>
+    /// Change page for table
+    /// </summary>
+    /// <param name="page"></param>
+    /// <returns></returns>
+    private async Task ChangePage(int page)
+    {
+        options.Page = page;
+        await UpdateOptions();
+        await InvokeAsync(() => StateHasChanged());
+    }
+
+    /// <summary>
+    /// Change number of record per page
+    /// </summary>
+    /// <param name="perPage"></param>
+    /// <returns></returns>
+    private async Task ChangePerPage(int perPage)
+    {
+        options.Page = 1;
+        options.PerPage = perPage;
+        await UpdateOptions();
+        await InvokeAsync(() => StateHasChanged());
+    }
+
+    /// <summary>
+    /// Change search data
+    /// </summary>
+    /// <param name="args"></param>
+    /// <returns></returns>
+    private async Task FilterChangedAsync(string search)
+    {
+        options.Search = search;
+        await UpdateOptions();
+        await InvokeAsync(() => StateHasChanged());
+    }
+
+    /// <summary>
+    /// Sort data by specific row
+    /// </summary>
+    /// <param name="sortBy"></param>
+    /// <returns></returns>
+    private async Task SortBy(string sortBy)
+    {
+        options.SortByDirection = options.SortBy.Equals(sortBy) ? (options.SortByDirection.Equals("asc") ? "desc" : "asc") : "asc";
+        options.SortBy = sortBy;
+        await UpdateOptions();
+        await InvokeAsync(() => StateHasChanged());
+    }
+
+    #endregion
+
+    #region User methods
+
+    /// <summary>
+    /// Open "ModalView" for edit or create
+    /// </summary>
+    /// <param name="userId">parameter userId is 0 then is create</param>
+    /// <returns></returns>
+    private async void OpenModal(int userId)
+    {
+        //Check does User edit himself
+        bool selfEdit = userId == (await UserService.GetUser(HttpContextAccessor.HttpContext.User.Identity.Name)).Id;
+
+        var parameters = new ModalParameters();
+        //Adding parameters that will be transfered to "ModalView"
+        parameters.Add(nameof(ModalView.userId), userId);
+        parameters.Add(nameof(ModalView.roleId), roleId);
+        parameters.Add(nameof(ModalView.selfEdit), selfEdit);
+
+        //Title of "ModalView"
+        string modalTitle = (userId != 0 ? "Uredi" : "Kreiraj") + " korisnika";
+
+        var formModal = Modal.Show<ModalView>(modalTitle, parameters);
+
+        var result = await formModal.Result;
+
+        if (result.Cancelled)
+        {
+            await UpdateOptions();
+
+            await InvokeAsync(
+                () => StateHasChanged()
+            );
+        }
+    }
+
+    /// <summary>
+    /// Delete selected user
+    /// </summary>
+    /// <param name="userId"></param>
+    /// <returns></returns>
+    private async Task DeleteUser(int userId)
+    {
+        //Spinner on Top Navigation starts
+        State.Spinner = true;
+
+        bool isCurrentUser = (await UserService.GetUser(userId)).Username.Equals(HttpContextAccessor.HttpContext.User.Identity.Name);
+
+        //Adding sweet alert options
+        SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+        {
+            Title = "Jeste li sigurni?",
+            Text = isCurrentUser ? "Odabrani korisnik ste vi!" : "Korisnik će biti izbrisan!",
+            Icon = SweetAlertIcon.Warning,
+            ShowCancelButton = true,
+            ConfirmButtonText = "Da, izbriši" + (isCurrentUser ? " i odjavi me" : "") + "!",
+            CancelButtonText = "Ne"
+        };
+
+        //Fire sweet alert
+        await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+        {
+            //sweet alert result (if user clicks Cancel Button, then result.Value is null)
+            SweetAlertResult result = swalTask.Result;
+
+            if (!string.IsNullOrEmpty(result.Value))
+            {
+                try
+                {
+                    await UserService.DeleteUser(userId);
+
+                    //Changeing sweet alert options
+                    sweetAlertOptions = new SweetAlertOptions
+                    {
+                        Title = "Korisnik je obrisan!",
+                        Text = "Korisnik je uspješno obrisan!",
+                        Icon = SweetAlertIcon.Success,
+                        ShowCancelButton = false,
+                        ConfirmButtonText = "Uredu"
+                    };
+
+                    await UpdateOptions();
+
+                    await InvokeAsync(() => StateHasChanged());
+                }
+                catch
+                {
+                    //Changeing sweet alert options
+                    sweetAlertOptions = new SweetAlertOptions
+                    {
+                        Title = "Došlo je do pogreške!",
+                        Text = "Greška prilikom brisanja korisnika, molimo pokušate ponovno!",
+                        Icon = SweetAlertIcon.Error,
+                        ShowCancelButton = false,
+                        ConfirmButtonText = "Uredu"
+                    };
+                }
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions);
+
+                if (isCurrentUser)
+                {
+                    NavigationManager.NavigateTo("/account/logout", true);
+                }
+            }
+        });
+
+        //Spinner on Top Navigation stops
+        State.Spinner = false;
+    }
+
+    #endregion
+}

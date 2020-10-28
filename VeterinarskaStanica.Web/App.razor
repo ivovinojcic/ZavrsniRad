@@ -1,16 +1,18 @@
-﻿<Router AppAssembly="@typeof(Program).Assembly">
-    <Found Context="routeData">
-        <AuthorizeRouteView RouteData="@routeData">
-            <NotAuthorized>
-                <VeterinatskaStanica.Pages.Login.Index />
-            </NotAuthorized>
-            <Authorizing>
-            </Authorizing>
-        </AuthorizeRouteView>
-    </Found>
-    <NotFound>
-        <LayoutView Layout="@typeof(EmptyLayout)">
-            <VeterinatskaStanica.Pages.Error.Index />
-        </LayoutView>
-    </NotFound>
-</Router>
+﻿<CascadingBlazoredModal HideCloseButton="true">
+    <Router AppAssembly="@typeof(Program).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData">
+                <NotAuthorized>
+                    <VeterinatskaStanica.Pages.Login.Index />
+                </NotAuthorized>
+                <Authorizing>
+                </Authorizing>
+            </AuthorizeRouteView>
+        </Found>
+        <NotFound>
+            <LayoutView Layout="@typeof(EmptyLayout)">
+                <VeterinatskaStanica.Pages.Error.Index />
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingBlazoredModal>

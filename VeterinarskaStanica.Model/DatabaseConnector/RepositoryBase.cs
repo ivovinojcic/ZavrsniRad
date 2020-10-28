@@ -21,7 +21,8 @@ namespace VeterinarskaStanica.Model.DatabaseConnector
         }
 
         protected DataBaseConnection DbContext => _dataContext ?? (_dataContext = DbFactory.Init());
-        
+        protected DataBaseConnection DbContextThreadSafe => DbFactory.InitThreadSafe();
+
         #endregion
 
         protected RepositoryBase(IDbFactory dbFactory)
@@ -62,22 +63,22 @@ namespace VeterinarskaStanica.Model.DatabaseConnector
 
         public virtual async Task<IEnumerable<T>> GetAll()
         {
-            return await _dbSet.ToListAsync();
+            return await _dbSet.AsNoTracking().ToListAsync();
         }
 
         public virtual async Task<IEnumerable<T>> GetMany(Expression<Func<T, bool>> where)
         {
-            return await _dbSet.Where(where).ToListAsync();
+            return await _dbSet.AsNoTracking().Where(where).ToListAsync();
         }
 
         public async Task<T> Get(Expression<Func<T, bool>> where)
         {
-            return await _dbSet.Where(where).FirstOrDefaultAsync();
+            return await _dbSet.AsNoTracking().Where(where).FirstOrDefaultAsync();
         }
 
         public async Task<bool> Any(Expression<Func<T, bool>> where)
         {
-            return await _dbSet.AnyAsync(where);
+            return await _dbSet.AsNoTracking().AnyAsync(where);
         }
 
         #endregion
