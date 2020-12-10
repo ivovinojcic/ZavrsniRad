@@ -20,6 +20,7 @@ namespace VeterinarskaStanica.Web.Helper
         private bool _leftNav = true;
         private string _registeredUsername = null;
         private bool _spinner = false;
+        private bool _modal = false;
 
         /// <summary>
         /// Does LeftNav is Active?
@@ -54,6 +55,16 @@ namespace VeterinarskaStanica.Web.Helper
             set
             {
                 _spinner = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool Modal
+        {
+            get => _modal;
+            set
+            {
+                _modal = value;
                 OnPropertyChanged();
             }
         }

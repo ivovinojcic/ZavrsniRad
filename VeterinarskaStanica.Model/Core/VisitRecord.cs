@@ -13,8 +13,10 @@ namespace VeterinarskaStanica.Model.Core
         public string EmployeeDescription { get; set; }
         public int? EmployeeId { get; set; }
         public int? PetId { get; set; }
+        public int? RecordStatusId { get; set; }
 
         public virtual User Employee { get; set; }
         public virtual Pet Pet { get; set; }
+        public virtual RecordStatus RecordStatus { get; set; }
     }
 }

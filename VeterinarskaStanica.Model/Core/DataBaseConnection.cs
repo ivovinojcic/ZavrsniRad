@@ -19,6 +19,7 @@ namespace VeterinarskaStanica.Model.Core
 
         public virtual DbSet<Pet> Pets { get; set; }
         public virtual DbSet<PetType> PetTypes { get; set; }
+        public virtual DbSet<RecordStatus> RecordStatuses { get; set; }
         public virtual DbSet<Role> Roles { get; set; }
         public virtual DbSet<User> Users { get; set; }
         public virtual DbSet<VisitRecord> VisitRecords { get; set; }
@@ -49,6 +50,13 @@ namespace VeterinarskaStanica.Model.Core
             modelBuilder.Entity<PetType>(entity =>
             {
                 entity.ToTable("PetType");
+
+                entity.Property(e => e.Name).HasMaxLength(255);
+            });
+
+            modelBuilder.Entity<RecordStatus>(entity =>
+            {
+                entity.ToTable("RecordStatus");
 
                 entity.Property(e => e.Name).HasMaxLength(255);
             });
@@ -105,6 +113,11 @@ namespace VeterinarskaStanica.Model.Core
                     .WithMany(p => p.VisitRecords)
                     .HasForeignKey(x => x.PetId)
                     .HasConstraintName("FK_VisitRecords_Pet");
+
+                entity.HasOne(d => d.RecordStatus)
+                    .WithMany(p => p.VisitRecords)
+                    .HasForeignKey(x => x.RecordStatusId)
+                    .HasConstraintName("FK_VisitRecords_RecordStatusId");
             });
 
             OnModelCreatingPartial(modelBuilder);

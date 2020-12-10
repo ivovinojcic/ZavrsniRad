@@ -19,11 +19,20 @@
             @if (ContextAccessor.HttpContext.User.IsInRole("Admin") || ContextAccessor.HttpContext.User.IsInRole("Zaposlenik"))
             {
                 <div class="sb-sidenav-menu-heading">Korisnici</div>
-                <a class="nav-link @(page.Equals("korisnici") ? "active" : "")" href="/korisnici">
+                <a class="nav-link @(page.StartsWith("korisnici") ? "active" : "")" href="/korisnici">
                     <div class="sb-nav-link-icon">
                         <i class="fa fa-user"></i>
                     </div>
                     Lista korisnika
+                </a>
+            }
+            else
+            {
+                <a class="nav-link @(page.StartsWith("zivotinje") ? "active" : "")" href="/zivotinje">
+                    <div class="sb-nav-link-icon">
+                        <i class="fa fa-paw"></i>
+                    </div>
+                    Lista životinja
                 </a>
             }
         </div>

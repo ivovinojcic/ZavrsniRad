@@ -1,0 +1,168 @@
+﻿@using AutoMapper
+@using VeterinarskaStanica.Model.Model.Pet
+@using VeterinarskaStanica.Model.Core
+@using VeterinarskaStanica.Service.AppService
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Http
+
+@inject IPetService PetService
+@inject IMapper Mapper
+@inject SweetAlertService Swal
+@inject NavigationManager NavigationManager
+@inject IHttpContextAccessor HttpContextAccessor
+
+<EditForm Model="@petModel" OnValidSubmit="Submit">
+    <DataAnnotationsValidator />
+
+    <div class="row">
+        <div class="col-md-4">
+            <div class="form-group">
+                <label class="small mb-1" for="inputFirstName">Ime</label>
+                <InputText @bind-Value="petModel.Name" id="inputFirstName" class="form-control" type="text" placeholder="Unesite ime" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => petModel.Name)" /></span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                <label class="small mb-1" for="inputBirthDate">Datum rođenja</label>
+                <InputText @bind-Value="petModel.BirthDate" id="inputBirthDate" class="form-control" type="date" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => petModel.BirthDate)" /></span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                <label class="small mb-1" for="inputPetType">Vrsta životinje</label>
+                <InputSelect @bind-Value="petModel.PetTypeId" id="inputPetType" class="custom-select form-control">
+                    @if (petTypes != null)
+                    {
+                        foreach (PetType petType in petTypes)
+                        {
+                            <option value="@petType.Id.ToString()">@petType.Name</option>
+                        }
+                    }
+                </InputSelect>
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => petModel.PetTypeId)" /></span>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="submit" class="btn btn-success">
+            @(spinner ? (MarkupString)("<span class='spinner-border spinner-border-sm' role='status' aria-hidden='true'></span> Učitavanje...") : (MarkupString)("Spremi"))
+        </button>
+        <button type="button" class="btn btn-outline-danger" @onclick="@(() => BlazoredModal.Cancel())" data-dismiss="modal">Odustani</button>
+    </div>
+</EditForm>
+
+@code {
+
+    [Parameter] public int petId { get; set; }
+    [Parameter] public int userId { get; set; }
+    [CascadingParameter] BlazoredModalInstance BlazoredModal { get; set; }
+
+    private PetModel petModel = new PetModel();
+    private List<PetType> petTypes { get; set; }
+
+    private bool spinner = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        petTypes = await PetService.GetPetTypes();
+
+        //Check is edit or create
+        if (petId != 0)
+        {
+            // Start spinner
+            spinner = true;
+
+            //Catch pet from DB
+            Pet pet = await PetService.GetPet(petId);
+
+            // Map user into registerForm
+            petModel = Mapper.Map<PetModel>(pet);
+
+            //Parse Birthdate into string with specific format
+            petModel.BirthDate = pet.BirthDate?.ToString("yyyy-MM-dd");
+
+            // Stop spinner
+            spinner = false;
+
+            await InvokeAsync(
+                () => StateHasChanged()
+            );
+        }
+        else
+        {
+            petModel.UserId = userId;
+            petModel.PetTypeId = petTypes.FirstOrDefault()?.Id.ToString();
+        }
+
+        await InvokeAsync(() => StateHasChanged());
+    }
+
+    private async Task Submit()
+    {
+        if (!spinner)
+        {
+            //Start spinner
+            spinner = true;
+            await InvokeAsync(() => StateHasChanged());
+
+            //Try to add - edit pet
+            try
+            {
+                //Map modal object "pet model" into "pet" object
+                Pet pet = Mapper.Map<Pet>(petModel);
+
+                if (petId == 0)
+                {
+                    //Save user object into DB
+                    await PetService.CreatePet(pet);
+                }
+                else
+                {
+                    //Save user object into DB
+                    await PetService.EditPet(pet);
+                }
+
+                //Display Success msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Životinja je uspješno " + (petId == 0 ? "kreirana" : "editirana"),
+                    Text = "Životinja je uspješno " + (petId == 0 ? "kreirana" : "editirana"),
+                    Icon = SweetAlertIcon.Success,
+                    ConfirmButtonText = "Natrag na izlist životinja"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    await BlazoredModal.Cancel();
+                });
+            }
+            catch
+            {
+                //Display error msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Greška na sustavu",
+                    Text = "Došlo je do pogreške, molimo pokušajte ponovno kasnije",
+                    Icon = SweetAlertIcon.Warning,
+                    ConfirmButtonText = "Uredu"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    await InvokeAsync(() => StateHasChanged());
+
+                    NavigationManager.NavigateTo("", true);
+                });
+            }
+
+            //Stop spinner
+            spinner = false;
+        }
+    }
+}

@@ -1,6 +1,13 @@
 ﻿@using VeterinarskaStanica.Web.Helper
+@using VeterinatskaStanica.Pages.User
+@using VeterinarskaStanica.Service.AppService
+@using Microsoft.AspNetCore.Http
 
 @inject AppState State
+@inject IUserService UserService
+@inject IModalService Modal
+@inject IHttpContextAccessor HttpContextAccessor
+
 
 <nav class="sb-topnav navbar navbar-expand navbar-dark bg-dark">
     <a class="navbar-brand" href="/">Veterinarska stanica</a>
@@ -19,7 +26,7 @@
                     <i class="fa fa-user fa-fw"></i>
                 </a>
                 <div class="dropdown-menu dropdown-menu-right" aria-labelledby="userDropdown">
-                    <a class="dropdown-item" href="#">Postavke računa</a>
+                    <a class="dropdown-item" href="javascript:void(0)" @onclick="OpenModal">Postavke računa</a>
                     <div class="dropdown-divider"></div>
                     <a class="dropdown-item" href="/account/logout">Odjavi se</a>
                 </div>
@@ -47,5 +54,30 @@
     private void ShowHideLeftNav()
     {
         State.LeftNav = !State.LeftNav;
+    }
+
+    /// <summary>
+    /// Open "ModalView" to edit current user
+    /// </summary>
+    /// <returns></returns>
+    private async void OpenModal()
+    {
+        if(!State.Modal)
+        {
+            State.Modal = true;
+
+            var parameters = new ModalParameters();
+            //Adding parameters that will be transfered to "ModalView"
+            parameters.Add(nameof(ModalView.userId), (await UserService.GetUser(HttpContextAccessor.HttpContext.User.Identity.Name)).Id);
+            parameters.Add(nameof(ModalView.roleId), 0);
+            parameters.Add(nameof(ModalView.selfEdit), true);
+
+            //Title of "ModalView"
+            string modalTitle = "Uredi podatke";
+
+            var formModal = Modal.Show<ModalView>(modalTitle, parameters);
+
+            State.Modal = false;
+        }
     }
 }

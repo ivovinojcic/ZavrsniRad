@@ -1,4 +1,5 @@
-﻿@page "/korisnici"
+﻿@page "/zivotinje"
+@page "/zivotinje/{userId:int}"
 
 @using VeterinarskaStanica.Service.AppService
 @using VeterinarskaStanica.Model.Model.Datatable
@@ -7,29 +8,30 @@
 @using VeterinarskaStanica.Web.Helper
 @using Microsoft.AspNetCore.Http
 
-@attribute [Authorize(Roles = "Admin, Zaposlenik")]
+@attribute [Authorize]
 @layout MainLayout
 
 @inject IJSRuntime JSRuntime
+@inject IPetService PetService
 @inject IUserService UserService
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager NavigationManager
 @inject SweetAlertService Swal
 @inject AppState State
 @inject IModalService Modal
-@inject IHttpContextAccessor HttpContextAccessor
-@inject NavigationManager NavigationManager
 
 <main>
     <div class="container-fluid">
-        <h1 class="mt-4">Korisnici</h1>
+        <h1 class="mt-4">@(user != null ? $"Korisnik {user.Name} {user.Surname} - {user.Username}" : "Učitavanje..")</h1>
         <div class="card mb-4 mt-4">
             <div class="card-header">
                 <div class="float-left">
                     <i class="fa fa-table mr-1"></i>
-                    Tablica @(roleId == 1 ? ("administratora") : (roleId == 2 ? ("zaposlenika") : ("klijenata")))
+                    Tablica životinja
                 </div>
                 <div class="float-right">
                     <button @onclick="@(() => OpenModal(0))" class="btn btn-primary ml-2">
-                        Dodaj @(roleId == 1 ? ("administratora") : (roleId == 2 ? ("zaposlenika") : ("klijenta"))) <i class="fa fa-plus ml-2"></i>
+                        Dodaj životinju <i class="fa fa-plus ml-2"></i>
                     </button>
                 </div>
             </div>
@@ -50,14 +52,6 @@
                                     </label>
                                 </div>
                             </div>
-                            @if (HttpContextAccessor.HttpContext.User.IsInRole("Admin"))
-                            {
-                                <div class="col-sm-12 col-md-6 mt-4">
-                                    <button @onclick="() => ChangeRoleView(1)" class="btn mr-1 @(roleId == 1 ? ("btn-primary") : ("btn-outline-dark"))">Administratori</button>
-                                    <button @onclick="() => ChangeRoleView(2)" class="btn mr-1 @(roleId == 2 ? ("btn-primary") : ("btn-outline-dark"))">Zaposlenici</button>
-                                    <button @onclick="() => ChangeRoleView(3)" class="btn @(roleId == 3 ? ("btn-primary") : ("btn-outline-dark"))">Klijenti</button>
-                                </div>
-                            }
                             <div class="col-sm-12 col-md-6 mt-4">
                                 <div id="dataTable_filter" class="dataTables_filter">
                                     <label>
@@ -67,7 +61,7 @@
                                 </div>
                             </div>
                         </div>
-                        @if (users.Count < 1 && !firstLoading)
+                        @if (pets.Count < 1 && !firstLoading)
                         {
                             <div class="text-center mt-5">
                                 <p>Trenutno nema podataka koji zadovoljavaju postavljene kriterije pretrage.</p>
@@ -82,34 +76,24 @@
                                             <tr role="row">
                                                 <th @onclick='() => SortBy("Id")' class="sorting@(options.SortBy.Equals("Id") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 75px;">#</th>
                                                 <th @onclick='() => SortBy("Name")' class="sorting@(options.SortBy.Equals("Name") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Ime</th>
-                                                <th @onclick='() => SortBy("Surname")' class="sorting@(options.SortBy.Equals("Surname") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Prezime</th>
-                                                <th @onclick='() => SortBy("Username")' class="sorting@(options.SortBy.Equals("Username") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Korisničko ime</th>
-                                                <th @onclick='() => SortBy("PhoneNumber")' class="sorting@(options.SortBy.Equals("PhoneNumber") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Broj telefona</th>
+                                                <th @onclick='() => SortBy("PetTypeId")' class="sorting@(options.SortBy.Equals("PetTypeId") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Vrsta životinje</th>
                                                 <th tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Akcije</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach (User user in users)
+                                            @foreach (Pet pet in pets)
                                             {
-                                                <tr role="row" class="@(users.IndexOf(user) % 2 == 0 ? "even" : "odd")">
-                                                    <td>@user.Id</td>
-                                                    <td>@user.Name</td>
-                                                    <td>@user.Surname</td>
-                                                    <td>@user.Username</td>
-                                                    <td>@user.PhoneNumber</td>
+                                                <tr role="row" class="@(pets.IndexOf(pet) % 2 == 0 ? "even" : "odd")">
+                                                    <td>@pet.Id</td>
+                                                    <td>@pet.Name</td>
+                                                    <td>@pet.PetType.Name</td>
                                                     <td>
-                                                        <button @onclick="@(() => OpenModal(user.Id))" class="btn btn-primary" title="Uredi">
+                                                        <button @onclick="@(() => OpenModal(pet.Id))" class="btn btn-primary" title="Uredi">
                                                             <i class="fa fa-edit"></i>
                                                         </button>
-                                                        <button @onclick="() => DeleteUser(user.Id)" class="btn btn-danger" title="Izbriši">
+                                                        <button @onclick="() => DeletePet(pet.Id)" class="btn btn-danger" title="Izbriši">
                                                             <i class="fa fa-trash"></i>
                                                         </button>
-                                                        @if (user.Role.Name.Equals("Klijent"))
-                                                        {
-                                                            <button @onclick='() => NavigationManager.NavigateTo($"zivotinje/{user.Id}")' class="btn btn-success ml-1" title="Životinje">
-                                                                <i class="fa fa-paw"></i>
-                                                            </button>
-                                                        }
                                                     </td>
                                                 </tr>
                                             }
@@ -119,7 +103,7 @@
                             </div>
                             <div class="row mt-4">
                                 <div class="col-sm-12 col-md-5">
-                                    <div class="dataTables_info" id="dataTable_info" role="status" aria-live="polite">Trenutno prikazano @(((options.Page - 1) * options.PerPage) + 1) do @(users.Count + ((options.Page - 1) * options.PerPage)) od @options.TotalRecords podataka</div>
+                                    <div class="dataTables_info" id="dataTable_info" role="status" aria-live="polite">Trenutno prikazano @(((options.Page - 1) * options.PerPage) + 1) do @(pets.Count + ((options.Page - 1) * options.PerPage)) od @options.TotalRecords podataka</div>
                                 </div>
                                 @if (options.TotalPages > 1)
                                 {
@@ -180,11 +164,47 @@
 
 @code{
 
-    private List<User> users = new List<User>();
+    [Parameter]
+    public int userId { get; set; }
+
+    private User user { get; set; }
+    private List<Pet> pets = new List<Pet>();
     private DatatableOptions options = new DatatableOptions();
 
     private bool firstLoading = true;
-    private int roleId = 3;
+
+    protected override async Task OnInitializedAsync()
+    {
+        //Check does userId exist
+        if (userId != 0)
+        {
+            //if userId != 0, only "Zaposlenik" have access to page
+            if (HttpContextAccessor.HttpContext.User.IsInRole("Klijent"))
+            {
+                NavigationManager.NavigateTo("/");
+
+                return;
+            }
+
+            user = await UserService.GetUser(userId);
+        }
+        else
+        {
+            //if userId == 0, only "Klijent" have access to page
+            if (!HttpContextAccessor.HttpContext.User.IsInRole("Klijent"))
+            {
+                NavigationManager.NavigateTo("/");
+
+                return;
+            }
+
+            user = await UserService.GetUser(HttpContextAccessor.HttpContext.User.Identity.Name);
+
+            userId = user.Id;
+        }
+
+        await base.OnInitializedAsync();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -193,26 +213,10 @@
             //Change "Page Title"
             await JSRuntime.InvokeVoidAsync("ChangePageTitle", "Veterinarska stanica | Korisnici");
 
-            //Update list of users
+            //Update list of pets
             await UpdateOptions();
 
             firstLoading = false;
-
-            await InvokeAsync(() => StateHasChanged());
-        }
-    }
-
-    /// <summary>
-    /// Change List of users by parameter "newRole"
-    /// </summary>
-    private async Task ChangeRoleView(int newRole)
-    {
-        if (roleId != newRole)
-        {
-            roleId = newRole;
-
-            //Update list of users
-            await UpdateOptions();
 
             await InvokeAsync(() => StateHasChanged());
         }
@@ -226,11 +230,11 @@
     /// <returns></returns>
     private async Task UpdateOptions()
     {
-        // Get users from database with specific options
-        users = await UserService.GetUsers(options, roleId);
+        // Get pets from database with specific options
+        pets = await PetService.GetPets(options, userId);
 
         // Get number of total record in database
-        options.TotalRecords = await UserService.CountUsers(options, roleId);
+        options.TotalRecords = await PetService.CountPets(options, userId);
 
         // Update Options
         options = UserService.UpdateDatatableOptions(options);
@@ -288,30 +292,26 @@
 
     #endregion
 
-    #region User methods
+    #region Pet methods
 
     /// <summary>
     /// Open "ModalView" for edit or create
     /// </summary>
-    /// <param name="userId">parameter userId is 0 then is create</param>
+    /// <param name="petId">parameter petId is 0 then is create</param>
     /// <returns></returns>
-    private async void OpenModal(int userId)
+    private async void OpenModal(int petId)
     {
-        if(!State.Modal)
+        if (!State.Modal)
         {
             State.Modal = true;
 
-            //Check does User edit himself
-            bool selfEdit = userId == (await UserService.GetUser(HttpContextAccessor.HttpContext.User.Identity.Name)).Id;
-
             var parameters = new ModalParameters();
             //Adding parameters that will be transfered to "ModalView"
+            parameters.Add(nameof(ModalView.petId), petId);
             parameters.Add(nameof(ModalView.userId), userId);
-            parameters.Add(nameof(ModalView.roleId), roleId);
-            parameters.Add(nameof(ModalView.selfEdit), selfEdit);
 
             //Title of "ModalView"
-            string modalTitle = (userId != 0 ? "Uredi" : "Kreiraj") + " korisnika";
+            string modalTitle = (petId != 0 ? "Uredi" : "Kreiraj") + " životinju";
 
             var formModal = Modal.Show<ModalView>(modalTitle, parameters);
 
@@ -331,45 +331,43 @@
     }
 
     /// <summary>
-    /// Delete selected user
+    /// Delete selected pet
     /// </summary>
     /// <param name="userId"></param>
     /// <returns></returns>
-    private async Task DeleteUser(int userId)
+    private async Task DeletePet(int petId)
     {
         //Spinner on Top Navigation starts
         State.Spinner = true;
-
-        bool isCurrentUser = (await UserService.GetUser(userId)).Username.Equals(HttpContextAccessor.HttpContext.User.Identity.Name);
 
         //Adding sweet alert options
         SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
         {
             Title = "Jeste li sigurni?",
-            Text = isCurrentUser ? "Odabrani korisnik ste vi!" : "Korisnik će biti izbrisan!",
+            Text = "Životinja će biti izbrisana!",
             Icon = SweetAlertIcon.Warning,
             ShowCancelButton = true,
-            ConfirmButtonText = "Da, izbriši" + (isCurrentUser ? " i odjavi me" : "") + "!",
+            ConfirmButtonText = "Da, izbriši!",
             CancelButtonText = "Ne"
         };
 
         //Fire sweet alert
         await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
         {
-            //sweet alert result (if user clicks Cancel Button, then result.Value is null)
-            SweetAlertResult result = swalTask.Result;
+        //sweet alert result (if user clicks Cancel Button, then result.Value is null)
+        SweetAlertResult result = swalTask.Result;
 
             if (!string.IsNullOrEmpty(result.Value))
             {
                 try
                 {
-                    await UserService.DeleteUser(userId);
+                    await PetService.DeletePet(petId);
 
                     //Changeing sweet alert options
                     sweetAlertOptions = new SweetAlertOptions
                     {
-                        Title = "Korisnik je obrisan!",
-                        Text = "Korisnik je uspješno obrisan!",
+                        Title = "Životinja je obrisana!",
+                        Text = "Životinja je uspješno obrisana!",
                         Icon = SweetAlertIcon.Success,
                         ShowCancelButton = false,
                         ConfirmButtonText = "Uredu"
@@ -381,24 +379,19 @@
                 }
                 catch
                 {
-                    //Changeing sweet alert options
-                    sweetAlertOptions = new SweetAlertOptions
+                //Changeing sweet alert options
+                sweetAlertOptions = new SweetAlertOptions
                     {
                         Title = "Došlo je do pogreške!",
-                        Text = "Greška prilikom brisanja korisnika, molimo pokušate ponovno!",
+                        Text = "Greška prilikom brisanja životinje, molimo pokušate ponovno!",
                         Icon = SweetAlertIcon.Error,
                         ShowCancelButton = false,
                         ConfirmButtonText = "Uredu"
                     };
                 }
 
-                //Fire sweet alert
-                await Swal.FireAsync(sweetAlertOptions);
-
-                if (isCurrentUser)
-                {
-                    NavigationManager.NavigateTo("/account/logout", true);
-                }
+            //Fire sweet alert
+            await Swal.FireAsync(sweetAlertOptions);
             }
         });
 

@@ -83,6 +83,7 @@ namespace VeterinatskaStanica
             services.AddScoped<IDbFactory, DbFactory>();
             services.AddScoped<IUnitOfWork, UnitOfWork>();
             services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IPetService, PetService>();
 
             #endregion
 
