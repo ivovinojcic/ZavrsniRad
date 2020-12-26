@@ -1,18 +1,19 @@
-﻿@page "/zivotinje"
-@page "/zivotinje/{userId:int}"
+﻿@page "/termini"
+@page "/termini/{userId:int}"
 
 @using VeterinarskaStanica.Service.AppService
 @using VeterinarskaStanica.Model.Model.Datatable
 @using VeterinarskaStanica.Model.Core
+@using VeterinarskaStanica.Model.Model.Records
 @using CurrieTechnologies.Razor.SweetAlert2
 @using VeterinarskaStanica.Web.Helper
 @using Microsoft.AspNetCore.Http
 
-@attribute [Authorize]
+@attribute [Authorize(Roles = "Klijent, Zaposlenik")]
 @layout MainLayout
 
 @inject IJSRuntime JSRuntime
-@inject IPetService PetService
+@inject IRecordsService RecordsService
 @inject IUserService UserService
 @inject IHttpContextAccessor HttpContextAccessor
 @inject NavigationManager NavigationManager
@@ -22,23 +23,34 @@
 
 <main>
     <div class="container-fluid">
-        <h1 class="mt-4">@(user != null ? $"Korisnik {user.Name} {user.Surname} - {user.Username}" : "Učitavanje..")</h1>
+        <h1 class="mt-4">@(user != null ? $"{(user.RoleId == 2 ? "Zaposlenik" : "Korisnik")} {user.Name} {user.Surname} - {user.Username}" : "Učitavanje..")</h1>
         <div class="card mb-4 mt-4">
             <div class="card-header">
                 <div class="float-left">
                     <i class="fa fa-table mr-1"></i>
-                    Tablica životinja
+                    Tablica termina
                 </div>
-                <div class="float-right">
-                    <button @onclick="@(() => OpenModal(0))" class="btn btn-primary ml-2">
-                        Dodaj životinju <i class="fa fa-plus ml-2"></i>
-                    </button>
-                </div>
+                @if (user != null && user.RoleId == 3)
+                {
+                    <div class="float-right">
+                        <button @onclick="@(() => OpenModal(0, userId, false))" class="btn btn-primary ml-2">
+                            Zakaži termin <i class="fa fa-plus ml-2"></i>
+                        </button>
+                    </div>
+                }
             </div>
             <div class="card-body">
                 <div class="table-responsive">
                     <div id="dataTable_wrapper" class="dataTables_wrapper dt-bootstrap4">
                         <div class="row mb-3">
+                            <div class="col-sm-12 col-md-6 mt-4 mb-4">
+                                <button @onclick="() => ChangeStatusView(0)" class="btn mr-1 @(statusId == 0 ? ("btn-primary") : ("btn-outline-dark"))">Sve</button>
+                                <button @onclick="() => ChangeStatusView(1)" class="btn mr-1 @(statusId == 1 ? ("btn-primary") : ("btn-outline-dark"))">Na čekanju</button>
+                                <button @onclick="() => ChangeStatusView(2)" class="btn mr-1 @(statusId == 2 ? ("btn-primary") : ("btn-outline-dark"))">Potvrđeno</button>
+                                <button @onclick="() => ChangeStatusView(3)" class="btn @(statusId == 3 ? ("btn-primary") : ("btn-outline-dark"))">Odrađeno</button>
+                                <button @onclick="() => ChangeStatusView(4)" class="btn @(statusId == 4 ? ("btn-primary") : ("btn-outline-dark"))">Odbijeno</button>
+
+                            </div>
                             <div class="col-sm-12 col-md-12">
                                 <div class="dataTables_length" id="dataTable_length">
                                     <label>
@@ -61,7 +73,7 @@
                                 </div>
                             </div>
                         </div>
-                        @if (pets.Count < 1 && !firstLoading)
+                        @if (records.Count < 1 && !firstLoading)
                         {
                             <div class="text-center mt-5">
                                 <p>Trenutno nema podataka koji zadovoljavaju postavljene kriterije pretrage.</p>
@@ -75,28 +87,45 @@
                                         <thead>
                                             <tr role="row">
                                                 <th @onclick='() => SortBy("Id")' class="sorting@(options.SortBy.Equals("Id") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 75px;">#</th>
-                                                <th @onclick='() => SortBy("Name")' class="sorting@(options.SortBy.Equals("Name") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Ime</th>
-                                                <th @onclick='() => SortBy("PetTypeId")' class="sorting@(options.SortBy.Equals("PetTypeId") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Vrsta životinje</th>
+                                                <th tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Ime Korisnika</th>
+                                                <th tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Ime životinje</th>
+                                                <th tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Vrsta životinje</th>
+                                                <th tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Zadužena osoba</th>
+                                                <th @onclick='() => SortBy("Date")' class="sorting@(options.SortBy.Equals("Date") ? (options.SortByDirection.Equals("asc") ? "_asc" : "_desc") : "")" tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Datum pregleda</th>
+                                                <th tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Status</th>
                                                 <th tabindex="0" aria-controls="dataTable" rowspan="1" colspan="1" style="width: 150px;">Akcije</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach (Pet pet in pets)
+                                            @foreach (RecordsTable record in records)
                                             {
-                                                <tr role="row" class="@(pets.IndexOf(pet) % 2 == 0 ? "even" : "odd")">
-                                                    <td>@pet.Id</td>
-                                                    <td>@pet.Name</td>
-                                                    <td>@pet.PetType.Name</td>
+                                                <tr role="row" class="@(records.IndexOf(record) % 2 == 0 ? "even" : "odd")">
+                                                    <td>@record.Id</td>
+                                                    <td>@record.UserName</td>
+                                                    <td>@record.PetName</td>
+                                                    <td>@record.PetType</td>
+                                                    <td>@record.EmployeeName</td>
+                                                    <td>@record.Date</td>
+                                                    <td>@record.RecordStatus</td>
                                                     <td>
-                                                        <button @onclick="@(() => OpenModal(pet.Id))" class="btn btn-primary" title="Uredi">
-                                                            <i class="fa fa-edit"></i>
-                                                        </button>
-                                                        <button @onclick="() => DeletePet(pet.Id)" class="btn btn-danger" title="Izbriši">
-                                                            <i class="fa fa-trash"></i>
-                                                        </button>
-                                                        <button @onclick="() => AddRecord(pet.Id)" class="btn btn-success" title="Zakaži termin">
-                                                            <i class="fa fa-calendar"></i>
-                                                        </button>
+                                                        @if (user != null && user.RoleId == 3)
+                                                        {
+                                                            <button @onclick="() => OpenModal(record.Id, record.UserId, true)" class="btn btn-primary" title="Pregled">
+                                                                <i class="fa fa-eye"></i>
+                                                            </button>
+                                                        }
+                                                        else if (user != null && user.RoleId == 2)
+                                                        {
+                                                            <button @onclick="@(() => OpenModal(record.Id, record.UserId, false))" class="btn btn-primary" title="Uredi">
+                                                                <i class="fa fa-edit"></i>
+                                                            </button>
+                                                        }
+                                                        @if (record.RecordStatusId != 4)
+                                                        {
+                                                            <button @onclick="@(() => MakeRecordDenied(record.Id))" class="btn btn-danger ml-2" title="Poništi termin">
+                                                                <i class="fa fa-times-circle"></i>
+                                                            </button>
+                                                        }
                                                     </td>
                                                 </tr>
                                             }
@@ -106,7 +135,7 @@
                             </div>
                             <div class="row mt-4">
                                 <div class="col-sm-12 col-md-5">
-                                    <div class="dataTables_info" id="dataTable_info" role="status" aria-live="polite">Trenutno prikazano @(((options.Page - 1) * options.PerPage) + 1) do @(pets.Count + ((options.Page - 1) * options.PerPage)) od @options.TotalRecords podataka</div>
+                                    <div class="dataTables_info" id="dataTable_info" role="status" aria-live="polite">Trenutno prikazano @(((options.Page - 1) * options.PerPage) + 1) do @(records.Count + ((options.Page - 1) * options.PerPage)) od @options.TotalRecords podataka</div>
                                 </div>
                                 @if (options.TotalPages > 1)
                                 {
@@ -171,10 +200,11 @@
     public int userId { get; set; }
 
     private User user { get; set; }
-    private List<Pet> pets = new List<Pet>();
+    private List<RecordsTable> records = new List<RecordsTable>();
     private DatatableOptions options = new DatatableOptions();
 
     private bool firstLoading = true;
+    private int statusId = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -193,14 +223,6 @@
         }
         else
         {
-            //if userId == 0, only "Klijent" have access to page
-            if (!HttpContextAccessor.HttpContext.User.IsInRole("Klijent"))
-            {
-                NavigationManager.NavigateTo("/");
-
-                return;
-            }
-
             user = await UserService.GetUser(HttpContextAccessor.HttpContext.User.Identity.Name);
 
             userId = user.Id;
@@ -214,9 +236,9 @@
         if (firstRender)
         {
             //Change "Page Title"
-            await JSRuntime.InvokeVoidAsync("ChangePageTitle", "Veterinarska stanica | Korisnici");
+            await JSRuntime.InvokeVoidAsync("ChangePageTitle", "Veterinarska stanica | Termini");
 
-            //Update list of pets
+            //Update list of records
             await UpdateOptions();
 
             firstLoading = false;
@@ -233,11 +255,11 @@
     /// <returns></returns>
     private async Task UpdateOptions()
     {
-        // Get pets from database with specific options
-        pets = await PetService.GetPets(options, userId);
+        // Get records from database with specific options
+        records = await RecordsService.GetRecords(options, user.RoleId == 2 ? 0 : userId, user.RoleId == 3 ? 0 : userId, statusId);
 
-        // Get number of total record in database
-        options.TotalRecords = await PetService.CountPets(options, userId);
+        // Get number of total records in database
+        options.TotalRecords = await RecordsService.CountRecords(options, user.RoleId == 2 ? 0 : userId, user.RoleId == 3 ? 0 : userId, statusId);
 
         // Update Options
         options = UserService.UpdateDatatableOptions(options);
@@ -293,28 +315,49 @@
         await InvokeAsync(() => StateHasChanged());
     }
 
+    private async Task ChangeStatusView(int statusId)
+    {
+        this.statusId = statusId;
+
+        await UpdateOptions();
+
+        await InvokeAsync(() => StateHasChanged());
+    }
+
     #endregion
 
-    #region Pet methods
+    #region
 
     /// <summary>
     /// Open "ModalView" for edit or create
     /// </summary>
-    /// <param name="petId">parameter petId is 0 then is create</param>
+    /// <param name="id">parameter id is 0 then is create</param>
+    /// <param name="userId">parameter userId</param>
     /// <returns></returns>
-    private async void OpenModal(int petId)
+    private async void OpenModal(int id, int userId, bool isReadonly)
     {
         if (!State.Modal)
         {
             State.Modal = true;
 
+            int employeeId = 0;
+
+            if(HttpContextAccessor.HttpContext.User.IsInRole("Zaposlenik"))
+            {
+                employeeId = (await UserService.GetUser(HttpContextAccessor.HttpContext.User.Identity.Name)).Id;
+            }
+
             var parameters = new ModalParameters();
+
             //Adding parameters that will be transfered to "ModalView"
-            parameters.Add(nameof(ModalView.petId), petId);
+            parameters.Add(nameof(ModalView.id), id);
             parameters.Add(nameof(ModalView.userId), userId);
+            parameters.Add(nameof(ModalView.employeeId), employeeId);
+            parameters.Add(nameof(ModalView.petId), 0);
+            parameters.Add(nameof(ModalView.isReadonly), isReadonly);
 
             //Title of "ModalView"
-            string modalTitle = (petId != 0 ? "Uredi" : "Kreiraj") + " životinju";
+            string modalTitle = (id != 0 ? "Uredi" : "Kreiraj") + " termin";
 
             var formModal = Modal.Show<ModalView>(modalTitle, parameters);
 
@@ -333,116 +376,21 @@
         }
     }
 
-    /// <summary>
-    /// Delete selected pet
-    /// </summary>
-    /// <param name="userId"></param>
-    /// <returns></returns>
-    private async Task DeletePet(int petId)
+    private async void MakeRecordDenied(int id)
     {
-        //Spinner on Top Navigation starts
-        State.Spinner = true;
-
-        //Adding sweet alert options
-        SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+        if(!State.Spinner)
         {
-            Title = "Jeste li sigurni?",
-            Text = "Životinja će biti izbrisana!",
-            Icon = SweetAlertIcon.Warning,
-            ShowCancelButton = true,
-            ConfirmButtonText = "Da, izbriši!",
-            CancelButtonText = "Ne"
-        };
+            State.Spinner = true;
 
-        //Fire sweet alert
-        await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
-        {
-            //sweet alert result (if user clicks Cancel Button, then result.Value is null)
-            SweetAlertResult result = swalTask.Result;
+            await InvokeAsync(() => StateHasChanged());
 
-            if (!string.IsNullOrEmpty(result.Value))
-            {
-                try
-                {
-                    await PetService.DeletePet(petId);
+            await RecordsService.MakeRecordDenied(id);
 
-                    //Changeing sweet alert options
-                    sweetAlertOptions = new SweetAlertOptions
-                    {
-                        Title = "Životinja je obrisana!",
-                        Text = "Životinja je uspješno obrisana!",
-                        Icon = SweetAlertIcon.Success,
-                        ShowCancelButton = false,
-                        ConfirmButtonText = "Uredu"
-                    };
+            await UpdateOptions();
 
-                    await UpdateOptions();
+            State.Spinner = false;
 
-                    await InvokeAsync(() => StateHasChanged());
-                }
-                catch
-                {
-                    //Changeing sweet alert options
-                    sweetAlertOptions = new SweetAlertOptions
-                    {
-                        Title = "Došlo je do pogreške!",
-                        Text = "Greška prilikom brisanja životinje, molimo pokušate ponovno!",
-                        Icon = SweetAlertIcon.Error,
-                        ShowCancelButton = false,
-                        ConfirmButtonText = "Uredu"
-                    };
-                }
-
-                //Fire sweet alert
-                await Swal.FireAsync(sweetAlertOptions);
-            }
-        });
-
-        //Spinner on Top Navigation stops
-        State.Spinner = false;
-    }
-
-    /// <summary>
-    /// Add "Visit Record for Pet"
-    /// </summary>
-    /// <param name="petId"></param>
-    /// <returns></returns>
-    private async Task AddRecord(int petId)
-    {
-        if (!State.Modal)
-        {
-            State.Modal = true;
-
-            int employeeId = 0;
-
-            if (HttpContextAccessor.HttpContext.User.IsInRole("Zaposlenik"))
-            {
-                employeeId = (await UserService.GetUser(HttpContextAccessor.HttpContext.User.Identity.Name)).Id;
-            }
-
-            var parameters = new ModalParameters();
-
-            //Adding parameters that will be transfered to "ModalView"
-            parameters.Add(nameof(VeterinatskaStanica.Pages.Records.ModalView.id), 0);
-            parameters.Add(nameof(VeterinatskaStanica.Pages.Records.ModalView.userId), userId);
-            parameters.Add(nameof(VeterinatskaStanica.Pages.Records.ModalView.employeeId), employeeId);
-            parameters.Add(nameof(VeterinatskaStanica.Pages.Records.ModalView.petId), 0);
-            parameters.Add(nameof(VeterinatskaStanica.Pages.Records.ModalView.isReadonly), false);
-
-            var formModal = Modal.Show<VeterinatskaStanica.Pages.Records.ModalView>("Kreiraj termin", parameters);
-
-            var result = await formModal.Result;
-
-            if (result.Cancelled)
-            {
-                await UpdateOptions();
-
-                await InvokeAsync(
-                    () => StateHasChanged()
-                );
-            }
-
-            State.Modal = false;
+            await InvokeAsync(() => StateHasChanged());
         }
     }
 

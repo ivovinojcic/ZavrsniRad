@@ -84,6 +84,19 @@ namespace VeterinarskaStanica.Service.AppService
         /// <param name="options"></param>
         /// <returns></returns>
         DatatableOptions UpdateDatatableOptions(DatatableOptions options);
+
+        /// <summary>
+        /// Get all Employers
+        /// </summary>
+        /// <returns></returns>
+        Task<List<User>> GetEmployers();
+
+        /// <summary>
+        /// Get all "user pets"
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <returns></returns>
+        Task<List<Pet>> GetUserPets(int userId);
     }
 
     public class UserService : RepositoryBase<User>, IRepository<User>, IUserService
@@ -97,7 +110,7 @@ namespace VeterinarskaStanica.Service.AppService
 
         public async Task<bool> CheckLogin(string username, string password)
         {
-            return await Any(u => u.Username.Equals(username.ToLower()) && u.Password.Equals(password.SHA512Hash()) && !(u.Deleted??false));
+            return await Any(u => u.Username.ToLower().Equals(username.ToLower()) && u.Password.Equals(password.SHA512Hash()) && !(u.Deleted ?? false));
         }
 
         public async Task<string> GetUserRole(string username)
@@ -199,7 +212,7 @@ namespace VeterinarskaStanica.Service.AppService
                                                             || u.Surname.Contains(options.Search)
                                                             || u.Username.Contains(options.Search))
                                                             && u.RoleId == roleId
-                                                            && !(u.Deleted??false))
+                                                            && !(u.Deleted ?? false))
                                                    .Include(u => u.Role)
                                                    .OrderByPage(options.SortBy, options.SortByDirection, options.Page, options.PerPage)
                                                    .ToListAsync();
@@ -237,6 +250,16 @@ namespace VeterinarskaStanica.Service.AppService
             }
 
             return options;
+        }
+
+        public async Task<List<User>> GetEmployers()
+        {
+            return await DbContextThreadSafe.Users.AsNoTracking().Where(x => x.RoleId == 2).ToListAsync();
+        }
+
+        public async Task<List<Pet>> GetUserPets(int userId)
+        {
+            return await DbContextThreadSafe.Pets.AsNoTracking().Where(x => x.UserId == userId).ToListAsync();
         }
     }
 }

@@ -1,0 +1,226 @@
+﻿@using AutoMapper
+@using VeterinarskaStanica.Model.Model.Records
+@using VeterinarskaStanica.Model.Core
+@using VeterinarskaStanica.Service.AppService
+@using CurrieTechnologies.Razor.SweetAlert2
+@using Microsoft.AspNetCore.Http
+
+@inject IRecordsService RecordService
+@inject IUserService UserService
+@inject IMapper Mapper
+@inject SweetAlertService Swal
+@inject NavigationManager NavigationManager
+@inject IHttpContextAccessor HttpContextAccessor
+
+<EditForm Model="@recordsModel" OnValidSubmit="Submit">
+    <DataAnnotationsValidator />
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="small mb-1" for="inputEmployeeDescription">Zaposlenikov opis</label>
+                <InputTextArea disabled="@(!isEmployee || isReadonly ? true : false)" @bind-Value="recordsModel.EmployeeDescription" id="inputEmployeeDescription" class="form-control" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => recordsModel.EmployeeDescription)" /></span>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="form-group">
+                <label class="small mb-1" for="inputClientDescription">Korisnikov opis</label>
+                <InputTextArea disabled="@(isEmployee ? true : false)" @bind-Value="recordsModel.ClientDescription" id="inputClientDescription" class="form-control" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => recordsModel.ClientDescription)" /></span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                <label class="small mb-1" for="inputDate">Datum termina</label>
+                <InputText disabled="@(isReadonly ? true : false)" @bind-Value="recordsModel.Date" id="inputDate" class="form-control" type="date" />
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => recordsModel.Date)" /></span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                <label class="small mb-1" for="inputEmployee">Zaposlenik</label>
+                <InputSelect disabled="@(isReadonly ? true : false)" @bind-Value="recordsModel.EmployeeId" id="inputEmployee" class="custom-select form-control">
+                    @if (employers != null)
+                    {
+                        foreach (User employee in employers)
+                        {
+                            <option value="@employee.Id.ToString()">@employee.Name @employee.Surname</option>
+                        }
+                    }
+                </InputSelect>
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => recordsModel.RecordStatusId)" /></span>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="form-group">
+                <label class="small mb-1" for="inputPet">Kučni ljubimac</label>
+                <InputSelect disabled="@(isReadonly ? true : false)" @bind-Value="recordsModel.PetId" id="inputPet" class="custom-select form-control">
+                    @if (pets != null)
+                    {
+                        foreach (Pet pet in pets)
+                        {
+                            <option value="@pet.Id.ToString()">@pet.Name</option>
+                        }
+                    }
+                </InputSelect>
+                <span class="invalid-feedback d-block"><ValidationMessage For="@(() => recordsModel.RecordStatusId)" /></span>
+            </div>
+        </div>
+        @if (isEmployee)
+        {
+            <div class="col-md-4">
+                <div class="form-group">
+                    <label class="small mb-1" for="inputStatus">Status</label>
+                    <InputSelect disabled="@(isReadonly ? true : false)" @bind-Value="recordsModel.RecordStatusId" id="inputStatus" class="custom-select form-control">
+                        @if (recordStatuses != null)
+                            {
+                                foreach (RecordStatus recordStatus in recordStatuses)
+                                {
+                                <option value="@recordStatus.Id.ToString()">@recordStatus.Name</option>
+                                }
+                            }
+                    </InputSelect>
+                    <span class="invalid-feedback d-block"><ValidationMessage For="@(() => recordsModel.RecordStatusId)" /></span>
+                </div>
+            </div>
+        }
+    </div>
+    <div class="modal-footer">
+        <button type="submit" class="btn btn-success">
+            @(spinner ? (MarkupString)("<span class='spinner-border spinner-border-sm' role='status' aria-hidden='true'></span> Učitavanje...") : (MarkupString)("Spremi"))
+        </button>
+        <button type="button" class="btn btn-outline-danger" @onclick="@(() => BlazoredModal.Cancel())" data-dismiss="modal">Odustani</button>
+    </div>
+</EditForm>
+
+@code {
+
+    [Parameter] public int userId { get; set; }
+    [Parameter] public int petId { get; set; }
+    [Parameter] public int employeeId { get; set; }
+    [Parameter] public int id { get; set; }
+    [Parameter] public bool isReadonly { get; set; }
+    [CascadingParameter] BlazoredModalInstance BlazoredModal { get; set; }
+
+    private RecordsModel recordsModel = new RecordsModel();
+
+    private List<User> employers { get; set; }
+    private List<Pet> pets { get; set; }
+    private List<RecordStatus> recordStatuses { get; set; }
+
+    private bool spinner = false;
+    private bool isEmployee = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        isEmployee = HttpContextAccessor.HttpContext.User.IsInRole("Zaposlenik");
+
+        //Get all record statuses from DB
+        recordStatuses = await RecordService.GetRecordStatuses();
+
+        //Get all employers from DB
+        employers = await UserService.GetEmployers();
+
+        //Get all user pets from DB
+        pets = await UserService.GetUserPets(userId);
+
+        //Check is edit or create
+        if (id != 0)
+        {
+            // Start spinner
+            spinner = true;
+
+            //Catch "visit record" from DB
+            VisitRecord visitRecord = await RecordService.GetVisitRecord(id);
+
+            // Map VisitRecord into RecordsModel
+            recordsModel = Mapper.Map<RecordsModel>(visitRecord);
+
+            //Parse Date into string with specific format
+            recordsModel.Date = visitRecord.Date?.ToString("yyyy-MM-dd");
+
+            // Stop spinner
+            spinner = false;
+
+            await InvokeAsync(
+                () => StateHasChanged()
+            );
+        }
+        else
+        {
+            recordsModel.EmployeeId = employeeId != 0 ? employeeId.ToString() : employers.FirstOrDefault()?.Id.ToString();
+            recordsModel.PetId = petId != 0 ? petId.ToString() : pets.FirstOrDefault()?.Id.ToString();
+            recordsModel.RecordStatusId = recordStatuses.FirstOrDefault()?.Id.ToString();
+        }
+
+        await InvokeAsync(() => StateHasChanged());
+    }
+
+    private async Task Submit()
+    {
+        if (!spinner)
+        {
+            //Start spinner
+            spinner = true;
+            await InvokeAsync(() => StateHasChanged());
+
+            //Try to add - edit Visit record
+            try
+            {
+                //Map modal object "record model" into "record" object
+                VisitRecord visitRecord = Mapper.Map<VisitRecord>(recordsModel);
+
+                if (id == 0)
+                {
+                    //Save record object into DB
+                    await RecordService.CreateVisitRecord(visitRecord);
+                }
+                else
+                {
+                    //Save record object into DB
+                    await RecordService.EditVisitRecord(visitRecord);
+                }
+
+                //Display Success msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Termin je uspješno " + (id == 0 ? "kreiran" : "editiran"),
+                    Text = "Termin je uspješno " + (id == 0 ? "kreiran" : "editiran"),
+                    Icon = SweetAlertIcon.Success,
+                    ConfirmButtonText = "Natrag na izlist termina"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    await BlazoredModal.Cancel();
+                });
+            }
+            catch
+            {
+                //Display error msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Greška na sustavu",
+                    Text = "Došlo je do pogreške, molimo pokušajte ponovno kasnije",
+                    Icon = SweetAlertIcon.Warning,
+                    ConfirmButtonText = "Uredu"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    await InvokeAsync(() => StateHasChanged());
+
+                    NavigationManager.NavigateTo("", true);
+                });
+            }
+
+            //Stop spinner
+            spinner = false;
+        }
+    }
+}

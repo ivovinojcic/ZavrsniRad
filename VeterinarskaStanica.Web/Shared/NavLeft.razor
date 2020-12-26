@@ -35,6 +35,16 @@
                     Lista životinja
                 </a>
             }
+
+            @if (ContextAccessor.HttpContext.User.IsInRole("Klijent") || ContextAccessor.HttpContext.User.IsInRole("Zaposlenik"))
+            {
+                <a class="nav-link @(page.StartsWith("termini") ? "active" : "")" href="/termini">
+                    <div class="sb-nav-link-icon">
+                        <i class="fa fa-calendar"></i>
+                    </div>
+                    Lista termina
+                </a>
+            }
         </div>
     </div>
     <div class="sb-sidenav-footer">
