@@ -1,11 +1,52 @@
 ﻿@page "/"
 
+@using Microsoft.AspNetCore.Http
+@using VeterinarskaStanica.Service.AppService
+
 @attribute [Authorize]
 @layout MainLayout
 
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IUserService UserService 
+
 <main>
     <div class="container-fluid">
-        <h1 class="mt-4">Početna</h1>
-        
+        <h1 class="mt-4">Dobrodošli - Veterinarska ordinacija</h1>
+        <ol class="breadcrumb mb-4">
+            @if (HttpContextAccessor.HttpContext.User.IsInRole("Admin"))
+            {
+                <li class="breadcrumb-item"><a href="/korisnici">Upravljanje korisnicima</a></li>
+                <li class="breadcrumb-item"><a href="/postavke">Upravljanje početnog teksta</a></li>
+            }
+            else if (HttpContextAccessor.HttpContext.User.IsInRole("Zaposlenik"))
+            {
+                <li class="breadcrumb-item"><a href="/korisnici">Upravljanje korisnicima</a></li>
+                <li class="breadcrumb-item"><a href="/termini">Pregled termina</a></li>
+            }
+            else
+            {
+                <li class="breadcrumb-item"><a href="/zivotinje">Uređivanje mojih kučnih ljubimaca</a></li>
+                <li class="breadcrumb-item"><a href="/termini">Pregled termina</a></li>
+            }
+        </ol>
+        <div class="card mb-4">
+            <div class="card-body">
+                @((MarkupString)(homeText))
+            </div>
+        </div>
     </div>
 </main>
+
+@code {
+
+    string homeText = "Učitavanje...";
+
+    protected override async Task OnInitializedAsync()
+    {
+        homeText = await UserService.GetHomePageText();
+
+        await InvokeAsync(() => StateHasChanged());
+
+        await base.OnInitializedAsync();
+    }
+}

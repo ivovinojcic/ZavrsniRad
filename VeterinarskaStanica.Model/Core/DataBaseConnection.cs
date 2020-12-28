@@ -17,6 +17,7 @@ namespace VeterinarskaStanica.Model.Core
         {
         }
 
+        public virtual DbSet<PageSetting> PageSettings { get; set; }
         public virtual DbSet<Pet> Pets { get; set; }
         public virtual DbSet<PetType> PetTypes { get; set; }
         public virtual DbSet<RecordStatus> RecordStatuses { get; set; }
@@ -26,6 +27,18 @@ namespace VeterinarskaStanica.Model.Core
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            modelBuilder.Entity<PageSetting>(entity =>
+            {
+                entity.Property(e => e.UpdateDate)
+                    .HasColumnType("datetime")
+                    .HasAnnotation("Relational:ColumnType", "datetime");
+
+                entity.HasOne(d => d.User)
+                    .WithMany(p => p.PageSettings)
+                    .HasForeignKey(x => x.UserId)
+                    .HasConstraintName("FK_User_PageSettings");
+            });
+
             modelBuilder.Entity<Pet>(entity =>
             {
                 entity.ToTable("Pet");

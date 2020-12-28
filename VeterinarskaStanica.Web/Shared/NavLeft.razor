@@ -25,6 +25,17 @@
                     </div>
                     Lista korisnika
                 </a>
+
+                @if (ContextAccessor.HttpContext.User.IsInRole("Admin"))
+                {
+                    <div class="sb-sidenav-menu-heading">Postavke</div>
+                    <a class="nav-link @(page.StartsWith("postavke") ? "active" : "")" href="/postavke">
+                        <div class="sb-nav-link-icon">
+                            <i class="fa fa-cog"></i>
+                        </div>
+                        Uređivanje početnog teksta
+                    </a>
+                }
             }
             else
             {

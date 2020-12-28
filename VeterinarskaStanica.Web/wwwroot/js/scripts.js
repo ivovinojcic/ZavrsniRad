@@ -24,3 +24,12 @@ function SubmitLoginForm() {
 function ChangePageTitle(pageTitle) {
     document.title = pageTitle;
 }
+
+ResizeTextArea = function (id) {
+    var el = document.getElementById(id);
+    if (el) {
+        el.style.height = "5px";
+        el.style.height = (el.scrollHeight + 5) + "px";
+    }
+    return true;
+}

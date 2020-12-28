@@ -9,6 +9,7 @@ namespace VeterinarskaStanica.Model.Core
     {
         public User()
         {
+            PageSettings = new HashSet<PageSetting>();
             Pets = new HashSet<Pet>();
             VisitRecords = new HashSet<VisitRecord>();
         }
@@ -26,6 +27,7 @@ namespace VeterinarskaStanica.Model.Core
         public bool? Deleted { get; set; }
 
         public virtual Role Role { get; set; }
+        public virtual ICollection<PageSetting> PageSettings { get; set; }
         public virtual ICollection<Pet> Pets { get; set; }
         public virtual ICollection<VisitRecord> VisitRecords { get; set; }
     }

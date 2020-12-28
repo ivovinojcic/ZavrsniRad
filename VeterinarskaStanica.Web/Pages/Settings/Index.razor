@@ -1,0 +1,111 @@
+﻿@page "/postavke"
+
+@using VeterinarskaStanica.Service.AppService
+@using Microsoft.AspNetCore.Http
+@using VeterinarskaStanica.Web.Helper
+@using CurrieTechnologies.Razor.SweetAlert2
+
+@attribute [Authorize(Roles = "Admin")]
+@layout MainLayout
+
+@inject IUserService UserService
+@inject IJSRuntime JSRuntime
+@inject IHttpContextAccessor HttpContextAccessor
+@inject AppState State
+@inject SweetAlertService Swal
+@inject NavigationManager NavigationManager
+
+<main>
+    <div class="container-fluid">
+        <EditForm Model="homeText" OnSubmit="Submit">
+            <div class="row mt-5">
+                <div class="col-md-6">
+                    <p class="font-weight-bold mb-1">Text početne stranice</p>
+                </div>
+                <div class="col-md-6">
+                    <p class="font-weight-bold mb-1 float-right">Zadnji uredio: Ivo Vinojčić - ivinojc</p>
+                </div>
+                <div class="col-md-12">
+                    <div class="form-group">
+                        <InputTextArea @bind-Value="homeText" id="inputHomeText" class="form-control" />
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-success">
+                    @(spinner ? (MarkupString)("<span class='spinner-border spinner-border-sm' role='status' aria-hidden='true'></span> Učitavanje...") : (MarkupString)("Spremi"))
+                </button>
+            </div>
+        </EditForm>
+    </div>
+</main>
+
+@code{
+
+    string homeText = "";
+    bool spinner = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        homeText = await UserService.GetHomePageText();
+
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JSRuntime.InvokeAsync<bool>("ResizeTextArea", "inputHomeText");
+    }
+
+    private async Task Submit()
+    {
+        if (!spinner)
+        {
+            State.Spinner = true;
+            spinner = true;
+
+            await InvokeAsync(() => StateHasChanged());
+
+            try
+            {
+                int userId = (await UserService.GetUser(HttpContextAccessor.HttpContext.User.Identity.Name)).Id;
+
+                await UserService.SaveHomePageText(homeText, userId);
+
+                //Display Success msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Text je promjenjen!",
+                    Text = "Text na početnoj stranici je uspješno promjenjen",
+                    Icon = SweetAlertIcon.Success,
+                    ConfirmButtonText = "Natrag na početnu"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    NavigationManager.NavigateTo("", true);
+                });
+            }
+            catch
+            {
+                //Display error msg
+                //Adding sweet alert options
+                SweetAlertOptions sweetAlertOptions = new SweetAlertOptions
+                {
+                    Title = "Greška na sustavu",
+                    Text = "Došlo je do pogreške, molimo pokušajte ponovno kasnije",
+                    Icon = SweetAlertIcon.Warning,
+                    ConfirmButtonText = "Natrag na početnu"
+                };
+
+                //Fire sweet alert
+                await Swal.FireAsync(sweetAlertOptions).ContinueWith(async swalTask =>
+                {
+                    NavigationManager.NavigateTo("", true);
+                });
+            }
+        }
+    }
+}

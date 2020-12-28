@@ -94,9 +94,12 @@
                                                         <button @onclick="() => DeletePet(pet.Id)" class="btn btn-danger" title="Izbriši">
                                                             <i class="fa fa-trash"></i>
                                                         </button>
-                                                        <button @onclick="() => AddRecord(pet.Id)" class="btn btn-success" title="Zakaži termin">
-                                                            <i class="fa fa-calendar"></i>
-                                                        </button>
+                                                        @if (!HttpContextAccessor.HttpContext.User.IsInRole("Admin"))
+                                                        {
+                                                            <button @onclick="() => AddRecord(pet.Id)" class="btn btn-success ml-1" title="Zakaži termin">
+                                                                <i class="fa fa-calendar"></i>
+                                                            </button>
+                                                        }
                                                     </td>
                                                 </tr>
                                             }

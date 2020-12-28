@@ -97,6 +97,20 @@ namespace VeterinarskaStanica.Service.AppService
         /// <param name="userId"></param>
         /// <returns></returns>
         Task<List<Pet>> GetUserPets(int userId);
+
+        /// <summary>
+        /// Get home page text
+        /// </summary>
+        /// <returns></returns>
+        Task<string> GetHomePageText();
+
+        /// <summary>
+        /// Save input text into HomeText
+        /// </summary>
+        /// <param name="homeText"></param>
+        /// <param name="userId"></param>
+        /// <returns></returns>
+        Task SaveHomePageText(string homeText, int userId);
     }
 
     public class UserService : RepositoryBase<User>, IRepository<User>, IUserService
@@ -260,6 +274,35 @@ namespace VeterinarskaStanica.Service.AppService
         public async Task<List<Pet>> GetUserPets(int userId)
         {
             return await DbContextThreadSafe.Pets.AsNoTracking().Where(x => x.UserId == userId).ToListAsync();
+        }
+
+        public async Task<string> GetHomePageText()
+        {
+            return await DbContextThreadSafe.PageSettings.AsNoTracking().Select(x => x.Description).FirstOrDefaultAsync();
+        }
+
+        public async Task SaveHomePageText(string homeText, int userId)
+        {
+            //Catch page setting row
+            PageSetting pageSetting = await DbContext.PageSettings.FirstOrDefaultAsync();
+
+            //Set state to "edited"
+            DbContext.Entry(pageSetting).State = EntityState.Modified;
+
+            //set description
+            pageSetting.Description = homeText;
+
+            //update "Update date"
+            pageSetting.UpdateDate = DateTime.Now;
+
+            //Update "last modified by"
+            pageSetting.UserId = userId;
+
+            // Save changes
+            await _unitOfWork.Commit();
+
+            // Stop tracking this "pageSetting" 
+            DbContext.Entry(pageSetting).State = EntityState.Detached;
         }
     }
 }
